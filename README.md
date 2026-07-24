@@ -77,6 +77,16 @@ Removed lines are don'ts. Added lines are dos.
 | [`LEG039`](#leg039-no-unmatched-comments) | `no-unmatched-comments` | Policy opt-in. Reject comments without an allowed matcher or boundary identifier. |
 | [`LEG040`](#leg040-no-automated-comment-attribution) | `no-automated-comment-attribution` | Reject explicit automated source signatures in comments. |
 | [`LEG041`](#leg041-prefer-line-comments) | `prefer-line-comments` | Prefer `//` comments for ordinary multiline prose. |
+| [`LEG042`](#leg042-no-getter-prefix) | `no-getter-prefix` | Avoid the `Get` prefix on accessor names. |
+| [`LEG043`](#leg043-no-underscore-names) | `no-underscore-names` | Prefer `MixedCaps` over underscores in declared names. |
+| [`LEG044`](#leg044-prefer-initialism-casing) | `prefer-initialism-casing` | Keep initialisms such as `ID` and `URL` fully capitalized. |
+| [`LEG045`](#leg045-no-package-name-stutter) | `no-package-name-stutter` | Avoid repeating the package name in exported names. |
+| [`LEG046`](#leg046-no-generic-package-names) | `no-generic-package-names` | Avoid catch-all package names such as `util` or `common`. |
+| [`LEG047`](#leg047-prefer-range-loop) | `prefer-range-loop` | Prefer a range clause over an index counter loop. |
+| [`LEG048`](#leg048-no-redundant-break) | `no-redundant-break` | Remove trailing `break` statements from case clauses. |
+| [`LEG049`](#leg049-no-naked-returns) | `no-naked-returns` | Avoid naked returns outside short functions. |
+| [`LEG050`](#leg050-prefer-lowercase-error-strings) | `prefer-lowercase-error-strings` | Prefer lowercase error strings without trailing punctuation. |
+| [`LEG051`](#leg051-max-function-params) | `max-function-params` | Limit the number of parameters in a signature. |
 
 <!-- do/don't examples for non-comment rules registered in internal/analyzers/analyzers.go -->
 
@@ -442,6 +452,156 @@ Use Go line comments for ordinary multiline prose.
 + // The provider requires retries to remain ordered.
 ```
 
+<!-- idiom rule examples derived from https://go.dev/doc/effective_go and https://google.github.io/styleguide/go/best-practices.html -->
+
+<a id="leg042-no-getter-prefix"></a>
+
+### `LEG042 no-getter-prefix`
+
+[Effective Go, Getters](https://go.dev/doc/effective_go#Getters). Reported for zero-argument functions and methods that return a value. Generated files are skipped so protocol buffer accessors stay quiet.
+
+#### do / don't
+
+```diff
+- func (u User) GetOwner() string {
++ func (u User) Owner() string {
+ 	return u.owner
+ }
+```
+
+<a id="leg043-no-underscore-names"></a>
+
+### `LEG043 no-underscore-names`
+
+[Effective Go, MixedCaps](https://go.dev/doc/effective_go#mixed-caps). Test files and generated files are skipped.
+
+#### do / don't
+
+```diff
+- const max_retries = 3
++ const maxRetries = 3
+```
+
+<a id="leg044-prefer-initialism-casing"></a>
+
+### `LEG044 prefer-initialism-casing`
+
+[Google Go style, initialisms](https://google.github.io/styleguide/go/decisions#initialisms). Generated files are skipped.
+
+#### do / don't
+
+```diff
+- type Request struct {
+- 	Url    string
+- 	userId string
+- }
++ type Request struct {
++ 	URL    string
++ 	userID string
++ }
+```
+
+<a id="leg045-no-package-name-stutter"></a>
+
+### `LEG045 no-package-name-stutter`
+
+[Effective Go, package names](https://go.dev/doc/effective_go#package-names) and [Google Go style, avoid repetition](https://google.github.io/styleguide/go/best-practices#avoid-repetition). Reported when an exported name starts with the package name.
+
+#### do / don't
+
+```diff
+- func OrdersCreate() error
++ func Create() error
+```
+
+<a id="leg046-no-generic-package-names"></a>
+
+### `LEG046 no-generic-package-names`
+
+[Google Go style, util packages](https://google.github.io/styleguide/go/best-practices#util-packages).
+
+#### do / don't
+
+```diff
+- package util
++ package retry
+```
+
+<a id="leg047-prefer-range-loop"></a>
+
+### `LEG047 prefer-range-loop`
+
+[Effective Go, For](https://go.dev/doc/effective_go#for).
+
+#### do / don't
+
+```diff
+- for i := 0; i < len(scores); i++ {
+- 	sum += scores[i]
+- }
++ for _, score := range scores {
++ 	sum += score
++ }
+```
+
+<a id="leg048-no-redundant-break"></a>
+
+### `LEG048 no-redundant-break`
+
+[Effective Go, Switch](https://go.dev/doc/effective_go#switch). Go case clauses do not fall through, so a trailing `break` adds nothing. Labeled breaks are left alone.
+
+#### do / don't
+
+```diff
+ default:
+ 	notify(status)
+- 	break
+ }
+```
+
+<a id="leg049-no-naked-returns"></a>
+
+### `LEG049 no-naked-returns`
+
+[Effective Go, named result parameters](https://go.dev/doc/effective_go#named-results). Reported for named results in functions longer than `max-naked-return-lines`.
+
+#### do / don't
+
+```diff
+- 	err = validate(data)
+- 	return
++ 	return data, validate(data)
+ }
+```
+
+<a id="leg050-prefer-lowercase-error-strings"></a>
+
+### `LEG050 prefer-lowercase-error-strings`
+
+[Effective Go, Errors](https://go.dev/doc/effective_go#errors) and [Google Go style, error strings](https://google.github.io/styleguide/go/decisions#error-strings). Covers `errors.New` and `fmt.Errorf`. Initialisms and multiword identifiers such as `HTTP` or `TLSConfig` are left alone.
+
+#### do / don't
+
+```diff
+- return errors.New("Invalid user")
+- return fmt.Errorf("cannot read %s.", name)
++ return errors.New("invalid user")
++ return fmt.Errorf("cannot read %s", name)
+```
+
+<a id="leg051-max-function-params"></a>
+
+### `LEG051 max-function-params`
+
+[Google Go style, function argument lists](https://google.github.io/styleguide/go/best-practices#function-argument-lists).
+
+#### do / don't
+
+```diff
+- func send(host string, port int, user string, token string, retries int, verbose bool)
++ func send(target Target, options SendOptions)
+```
+
 ## Configure
 
 <!-- golangci-lint configuration derived from .golangci.yml and internal/analyzers/settings.go -->
@@ -473,6 +633,8 @@ linters:
           max-if-init-operators: 0
           max-composite-literal-arg-depth: 1
           max-function-lines: 20
+          max-function-params: 5
+          max-naked-return-lines: 5
           disabled-rules:
             - prefer-guard-clauses
 ```
@@ -625,6 +787,8 @@ Inventory the complete baseline without output caps:
 | `max-if-init-operators` | 0 | Maximum boolean operators when an `if` also has an initializer. |
 | `max-composite-literal-arg-depth` | 1 | Maximum nested composite literal depth in call arguments. |
 | `max-function-lines` | 20 | Maximum source lines in a function declaration or literal; nested literals are measured independently. |
+| `max-function-params` | 5 | Maximum parameters in a function signature. |
+| `max-naked-return-lines` | 5 | Longest function that may still use a naked return. |
 | `comment-matchers` | none | Case-insensitive Go regular expressions allowed anywhere in a comment group. |
 | `comment-prefix-identifiers` | none | Literal identifiers allowed at the start of a normalized comment group. |
 | `comment-suffix-identifiers` | none | Literal identifiers allowed at the end of a normalized comment group. |

@@ -25,7 +25,8 @@ func New(settings Settings) []*analysis.Analyzer {
 
 func ruleSpecs(settings Settings) []ruleSpec {
 	specs := coreRuleSpecs(settings)
-	return append(specs, goRuleSpecs(settings)...)
+	specs = append(specs, goRuleSpecs(settings)...)
+	return append(specs, idiomRuleSpecs(settings)...)
 }
 
 func coreRuleSpecs(settings Settings) []ruleSpec {
@@ -58,6 +59,21 @@ func goRuleSpecs(settings Settings) []ruleSpec {
 		newNoUnmatchedComments(settings),
 		newNoAutomatedCommentAttribution(settings),
 		newPreferLineComments(),
+	}
+}
+
+func idiomRuleSpecs(settings Settings) []ruleSpec {
+	return []ruleSpec{
+		newNoGetterPrefix(),
+		newNoUnderscoreNames(),
+		newPreferInitialismCasing(),
+		newNoPackageNameStutter(),
+		newNoGenericPackageNames(),
+		newPreferRangeLoop(),
+		newNoRedundantBreak(),
+		newNoNakedReturns(settings),
+		newPreferLowercaseErrorStrings(),
+		newMaxFunctionParams(settings),
 	}
 }
 

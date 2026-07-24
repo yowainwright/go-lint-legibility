@@ -19,6 +19,19 @@ func newMaxFunctionLines(settings Settings) ruleSpec {
 	)
 }
 
+func newMaxFunctionParams(settings Settings) ruleSpec {
+	max := settings.maxFunctionParams()
+	return newAnalyzer(
+		"LEG051",
+		"max-function-params",
+		"Limit the number of parameters in a function signature.",
+		func(pass *analysis.Pass) (any, error) {
+			checkFunctionParams(pass, max)
+			return nil, nil
+		},
+	)
+}
+
 func checkFunctionLines(pass *analysis.Pass, max int) {
 	for _, file := range pass.Files {
 		ast.Inspect(file, func(node ast.Node) bool {
@@ -45,6 +58,34 @@ func checkFunctionLineBudget(pass *analysis.Pass, node ast.Node, max int) {
 		"LEG038",
 		"max-function-lines",
 		"Function is too long. Split it into focused helpers.",
+	)
+}
+
+func checkFunctionParams(pass *analysis.Pass, max int) {
+	for _, file := range pass.Files {
+		ast.Inspect(file, func(node ast.Node) bool {
+			checkFunctionParamBudget(pass, node, max)
+			return true
+		})
+	}
+}
+
+func checkFunctionParamBudget(pass *analysis.Pass, node ast.Node, max int) {
+	funcType := functionType(node)
+	if funcType == nil {
+		return
+	}
+
+	if fieldCount(funcType.Params) <= max {
+		return
+	}
+
+	report(
+		pass,
+		functionReportNode(node),
+		"LEG051",
+		"max-function-params",
+		"Function takes too many parameters. Group related values into a struct.",
 	)
 }
 
