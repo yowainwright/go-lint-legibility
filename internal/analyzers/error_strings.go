@@ -12,11 +12,6 @@ import (
 
 const errorStringPunctuation = ".!:"
 
-var errorStringConstructors = map[string]bool{
-	"errors.New": true,
-	"fmt.Errorf": true,
-}
-
 func newPreferLowercaseErrorStrings() ruleSpec {
 	return newAnalyzer(
 		"LEG050",
@@ -30,11 +25,13 @@ func newPreferLowercaseErrorStrings() ruleSpec {
 }
 
 func checkErrorStrings(pass *analysis.Pass) {
+	parents := buildParentMap(pass.Files)
 	for _, file := range pass.Files {
+		constructors := errorStringConstructorNames(file)
 		ast.Inspect(file, func(node ast.Node) bool {
 			call, ok := node.(*ast.CallExpr)
 			if ok {
-				checkErrorStringCall(pass, call)
+				checkErrorStringCall(pass, call, constructors, parents)
 			}
 
 			return true
@@ -42,8 +39,13 @@ func checkErrorStrings(pass *analysis.Pass) {
 	}
 }
 
-func checkErrorStringCall(pass *analysis.Pass, call *ast.CallExpr) {
-	literal, ok := errorStringLiteral(call)
+func checkErrorStringCall(
+	pass *analysis.Pass,
+	call *ast.CallExpr,
+	constructors map[string]bool,
+	parents map[ast.Node]ast.Node,
+) {
+	literal, ok := errorStringLiteral(call, constructors, parents)
 	if !ok {
 		return
 	}
@@ -75,8 +77,12 @@ func reportErrorString(pass *analysis.Pass, literal *ast.BasicLit, message strin
 	report(pass, literal, "LEG050", "prefer-lowercase-error-strings", message)
 }
 
-func errorStringLiteral(call *ast.CallExpr) (*ast.BasicLit, bool) {
-	if !isErrorStringConstructor(call.Fun) {
+func errorStringLiteral(
+	call *ast.CallExpr,
+	constructors map[string]bool,
+	parents map[ast.Node]ast.Node,
+) (*ast.BasicLit, bool) {
+	if !isErrorStringConstructor(call, constructors, parents) {
 		return nil, false
 	}
 
@@ -92,19 +98,106 @@ func errorStringLiteral(call *ast.CallExpr) (*ast.BasicLit, bool) {
 	return literal, literal.Kind == token.STRING
 }
 
-func isErrorStringConstructor(fun ast.Expr) bool {
-	selector, ok := fun.(*ast.SelectorExpr)
-	if !ok {
+func isErrorStringConstructor(
+	call *ast.CallExpr,
+	constructors map[string]bool,
+	parents map[ast.Node]ast.Node,
+) bool {
+	pkg, method, found := errorStringSelector(call)
+	if !found {
 		return false
+	}
+	if pkg.Obj != nil {
+		return false
+	}
+	if localNameShadowsCall(call, pkg.Name, parents) {
+		return false
+	}
+
+	qualified := pkg.Name + "." + method
+	return constructors[qualified]
+}
+
+func errorStringSelector(call *ast.CallExpr) (*ast.Ident, string, bool) {
+	selector, ok := call.Fun.(*ast.SelectorExpr)
+	if !ok {
+		return nil, "", false
 	}
 
 	pkg, ok := selector.X.(*ast.Ident)
 	if !ok {
+		return nil, "", false
+	}
+
+	return pkg, selector.Sel.Name, true
+}
+
+func localNameShadowsCall(call *ast.CallExpr, name string, parents map[ast.Node]ast.Node) bool {
+	function := enclosingFunction(call, parents)
+	if function == nil {
 		return false
 	}
 
-	qualified := pkg.Name + "." + selector.Sel.Name
-	return errorStringConstructors[qualified]
+	return declarationCountBefore(function, name, call.Pos()) > 0
+}
+
+func errorStringConstructorNames(file *ast.File) map[string]bool {
+	constructors := make(map[string]bool)
+	for _, spec := range file.Imports {
+		name, found := errorStringConstructorName(spec)
+		if found {
+			constructors[name] = true
+		}
+	}
+
+	return constructors
+}
+
+func errorStringConstructorName(spec *ast.ImportSpec) (string, bool) {
+	importPath, err := strconv.Unquote(spec.Path.Value)
+	if err != nil {
+		return "", false
+	}
+
+	method, found := errorStringConstructorMethod(importPath)
+	if !found {
+		return "", false
+	}
+
+	name, found := errorStringImportName(spec, importPath)
+	if !found {
+		return "", false
+	}
+
+	qualified := name + "." + method
+	return qualified, true
+}
+
+func errorStringConstructorMethod(importPath string) (string, bool) {
+	switch importPath {
+	case "errors":
+		return "New", true
+	case "fmt":
+		return "Errorf", true
+	default:
+		return "", false
+	}
+}
+
+func errorStringImportName(spec *ast.ImportSpec, importPath string) (string, bool) {
+	if spec.Name == nil {
+		return importPath, true
+	}
+
+	name := spec.Name.Name
+	if name == "_" {
+		return "", false
+	}
+	if name == "." {
+		return "", false
+	}
+
+	return name, true
 }
 
 func startsWithCapitalizedWord(text string) bool {

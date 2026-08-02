@@ -62,31 +62,51 @@ func checkFunctionLineBudget(pass *analysis.Pass, node ast.Node, max int) {
 }
 
 func checkFunctionParams(pass *analysis.Pass, max int) {
+	parents := buildParentMap(pass.Files)
 	for _, file := range pass.Files {
 		ast.Inspect(file, func(node ast.Node) bool {
-			checkFunctionParamBudget(pass, node, max)
+			funcType, ok := node.(*ast.FuncType)
+			if ok {
+				checkFunctionParamBudget(pass, funcType, max, parents)
+			}
+
 			return true
 		})
 	}
 }
 
-func checkFunctionParamBudget(pass *analysis.Pass, node ast.Node, max int) {
-	funcType := functionType(node)
-	if funcType == nil {
-		return
-	}
-
+func checkFunctionParamBudget(
+	pass *analysis.Pass,
+	funcType *ast.FuncType,
+	max int,
+	parents map[ast.Node]ast.Node,
+) {
 	if fieldCount(funcType.Params) <= max {
 		return
 	}
 
 	report(
 		pass,
-		functionReportNode(node),
+		functionTypeReportNode(funcType, parents),
 		"LEG051",
 		"max-function-params",
 		"Function takes too many parameters. Group related values into a struct.",
 	)
+}
+
+func functionTypeReportNode(funcType *ast.FuncType, parents map[ast.Node]ast.Node) ast.Node {
+	switch parent := parents[funcType].(type) {
+	case *ast.FuncDecl:
+		return parent.Name
+	case *ast.Field:
+		if len(parent.Names) > 0 {
+			return parent.Names[0]
+		}
+	case *ast.TypeSpec:
+		return parent.Name
+	}
+
+	return funcType
 }
 
 func functionLineCount(pass *analysis.Pass, node ast.Node) int {

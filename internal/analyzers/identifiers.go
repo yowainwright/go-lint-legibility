@@ -272,9 +272,21 @@ func declaredIdentifiers(node ast.Node) []*ast.Ident {
 		return typed.Names
 	case *ast.AssignStmt:
 		return definedIdentifiers(typed)
+	case *ast.RangeStmt:
+		return rangeIdentifiers(typed)
 	default:
 		return nil
 	}
+}
+
+func rangeIdentifiers(stmt *ast.RangeStmt) []*ast.Ident {
+	if stmt.Tok != token.DEFINE {
+		return nil
+	}
+
+	identifiers := make([]*ast.Ident, 0, 2)
+	identifiers = appendIdentifier(identifiers, stmt.Key)
+	return appendIdentifier(identifiers, stmt.Value)
 }
 
 func definedIdentifiers(stmt *ast.AssignStmt) []*ast.Ident {
@@ -297,6 +309,89 @@ func appendIdentifier(identifiers []*ast.Ident, expression ast.Expr) []*ast.Iden
 	}
 
 	return append(identifiers, identifier)
+}
+
+func enclosingFunction(node ast.Node, parents map[ast.Node]ast.Node) ast.Node {
+	for parent := parents[node]; parent != nil; parent = parents[parent] {
+		if functionBody(parent) != nil {
+			return parent
+		}
+	}
+
+	return nil
+}
+
+type declarationScan struct {
+	function ast.Node
+	name     string
+	before   token.Pos
+	count    int
+}
+
+func declarationCountBefore(function ast.Node, name string, before token.Pos) int {
+	scan := declarationScan{
+		function: function,
+		name:     name,
+		before:   before,
+	}
+	ast.Inspect(function, scan.inspect)
+
+	return scan.count
+}
+
+func (scan *declarationScan) inspect(node ast.Node) bool {
+	if node == nil {
+		return false
+	}
+	if isNestedFunctionNode(node, scan.function) {
+		return false
+	}
+	if nodeStartsAfterBoundary(node, scan.function, scan.before) {
+		return false
+	}
+
+	if declarationVisibleAt(node, scan.before) {
+		scan.count += declaredIdentifierCount(node, scan.name)
+	}
+	return true
+}
+
+func isNestedFunctionNode(node ast.Node, function ast.Node) bool {
+	if node == function {
+		return false
+	}
+
+	return functionBody(node) != nil
+}
+
+func nodeStartsAfterBoundary(node ast.Node, function ast.Node, boundary token.Pos) bool {
+	if node == function {
+		return false
+	}
+
+	return node.Pos() >= boundary
+}
+
+func declarationVisibleAt(node ast.Node, position token.Pos) bool {
+	switch typed := node.(type) {
+	case *ast.RangeStmt:
+		return typed.Body.Lbrace < position
+	case *ast.AssignStmt, *ast.ValueSpec, *ast.Field:
+		return node.End() < position
+	default:
+		return node.Pos() < position
+	}
+}
+
+func declaredIdentifierCount(node ast.Node, name string) int {
+	count := 0
+	for _, identifier := range declaredIdentifiers(node) {
+		if identifier.Name == name {
+			count++
+		}
+	}
+
+	return count
 }
 
 func fieldCount(fields *ast.FieldList) int {

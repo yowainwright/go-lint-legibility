@@ -532,6 +532,9 @@ Use Go line comments for ordinary multiline prose.
 ### `LEG047 prefer-range-loop`
 
 [Effective Go, For](https://go.dev/doc/effective_go#for).
+To preserve string and growing-slice semantics, the rule reports only canonical
+loops over explicitly typed array or slice parameters whose binding remains
+stable in the loop body.
 
 #### do / don't
 
@@ -578,7 +581,11 @@ Use Go line comments for ordinary multiline prose.
 
 ### `LEG050 prefer-lowercase-error-strings`
 
-[Effective Go, Errors](https://go.dev/doc/effective_go#errors) and [Google Go style, error strings](https://google.github.io/styleguide/go/decisions#error-strings). Covers `errors.New` and `fmt.Errorf`. Initialisms and multiword identifiers such as `HTTP` or `TLSConfig` are left alone.
+[Effective Go, Errors](https://go.dev/doc/effective_go#errors) and
+[Google Go style, error strings](https://google.github.io/styleguide/go/decisions#error-strings).
+Covers `errors.New` and `fmt.Errorf`, recognizes import aliases, and ignores
+shadowed or unrelated selectors. Initialisms and multiword identifiers such as
+`HTTP` or `TLSConfig` are left alone.
 
 #### do / don't
 
@@ -594,6 +601,7 @@ Use Go line comments for ordinary multiline prose.
 ### `LEG051 max-function-params`
 
 [Google Go style, function argument lists](https://google.github.io/styleguide/go/best-practices#function-argument-lists).
+Applies to declarations, literals, named function types, and interface methods.
 
 #### do / don't
 

@@ -95,10 +95,22 @@ func checkFuncDeclStutter(pass *analysis.Pass, decl *ast.FuncDecl, prefix string
 
 func checkSpecNamesStutter(pass *analysis.Pass, specs []ast.Spec, prefix string) {
 	for _, spec := range specs {
-		typeSpec, ok := spec.(*ast.TypeSpec)
-		if ok {
-			checkStutterName(pass, typeSpec.Name, prefix)
-		}
+		checkSpecNameStutter(pass, spec, prefix)
+	}
+}
+
+func checkSpecNameStutter(pass *analysis.Pass, spec ast.Spec, prefix string) {
+	switch typed := spec.(type) {
+	case *ast.TypeSpec:
+		checkStutterName(pass, typed.Name, prefix)
+	case *ast.ValueSpec:
+		checkValueNamesStutter(pass, typed.Names, prefix)
+	}
+}
+
+func checkValueNamesStutter(pass *analysis.Pass, names []*ast.Ident, prefix string) {
+	for _, name := range names {
+		checkStutterName(pass, name, prefix)
 	}
 }
 
@@ -134,14 +146,17 @@ func stuttersPackageName(name string, prefix string) bool {
 }
 
 func checkGenericPackageNames(pass *analysis.Pass) {
-	for _, file := range pass.Files {
-		name := strings.TrimSuffix(file.Name.Name, "_test")
-		if !genericPackageNames[name] {
-			continue
-		}
-
-		reportGenericPackageName(pass, file.Name)
+	if len(pass.Files) == 0 {
+		return
 	}
+
+	file := pass.Files[0]
+	name := strings.TrimSuffix(file.Name.Name, "_test")
+	if !genericPackageNames[name] {
+		return
+	}
+
+	reportGenericPackageName(pass, file.Name)
 }
 
 func reportGenericPackageName(pass *analysis.Pass, identifier *ast.Ident) {
