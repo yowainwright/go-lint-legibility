@@ -682,6 +682,8 @@ linters:
           max-function-lines: 20
           max-function-params: 5
           max-naked-return-lines: 5
+          # enabled-rules is an exclusive replacement list; this example
+          # enables only the two opt-in naming rules.
           enabled-rules:
             - prefer-verb-function-names
             - prefer-boolean-prefixes

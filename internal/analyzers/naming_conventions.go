@@ -83,7 +83,7 @@ func checkFunctionName(pass *analysis.Pass, declaration *ast.FuncDecl) {
 
 func allowedFunctionName(name string) bool {
 	switch name {
-	case "init", "main", "New", "Open", "String", "Error", "Len", "Close", "Read", "Write":
+	case "init", "main", "New", "Open", "String", "Error", "Len", "Close", "Read", "Write", "Value":
 		return true
 	default:
 		return false
@@ -141,18 +141,26 @@ func checkBooleanField(pass *analysis.Pass, expression ast.Expr, names []*ast.Id
 	}
 
 	for _, name := range names {
-		if hasBooleanPrefix(name.Name) {
-			continue
-		}
-
-		report(
-			pass,
-			name,
-			"LEG053",
-			"prefer-boolean-prefixes",
-			"Use a boolean predicate or state prefix such as is, has, can, or should.",
-		)
+		checkBooleanName(pass, name)
 	}
+}
+
+func checkBooleanName(pass *analysis.Pass, name *ast.Ident) {
+	if name.Name == "_" {
+		return
+	}
+
+	if hasBooleanPrefix(name.Name) {
+		return
+	}
+
+	report(
+		pass,
+		name,
+		"LEG053",
+		"prefer-boolean-prefixes",
+		"Use a boolean predicate or state prefix such as is, has, can, or should.",
+	)
 }
 
 func isBoolType(expression ast.Expr) bool {
@@ -171,10 +179,18 @@ func hasBooleanPrefix(name string) bool {
 	}
 
 	for _, prefix := range booleanPrefixes {
-		if hasWordPrefix(name, prefix) {
+		if hasBooleanWordPrefix(name, prefix) {
 			return true
 		}
 	}
 
 	return false
+}
+
+func hasBooleanWordPrefix(name string, prefix string) bool {
+	if len(name) <= len(prefix) {
+		return false
+	}
+
+	return hasWordPrefix(name, prefix)
 }
