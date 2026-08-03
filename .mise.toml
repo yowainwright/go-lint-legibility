@@ -1,0 +1,4 @@
+[tools]
+go = "1.25.0"
+golangci-lint = "2.12.2"
+svu = "3.4.0"

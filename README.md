@@ -87,6 +87,8 @@ Removed lines are don'ts. Added lines are dos.
 | [`LEG049`](#leg049-no-naked-returns) | `no-naked-returns` | Avoid naked returns outside short functions. |
 | [`LEG050`](#leg050-prefer-lowercase-error-strings) | `prefer-lowercase-error-strings` | Prefer lowercase error strings without trailing punctuation. |
 | [`LEG051`](#leg051-max-function-params) | `max-function-params` | Limit the number of parameters in a signature. |
+| [`LEG052`](#leg052-prefer-verb-function-names) | `prefer-verb-function-names` | Opt-in. Prefer action verbs at the start of function names. |
+| [`LEG053`](#leg053-prefer-boolean-prefixes) | `prefer-boolean-prefixes` | Opt-in. Prefer predicate or state prefixes for boolean names. |
 
 <!-- do/don't examples for non-comment rules registered in internal/analyzers/analyzers.go -->
 
@@ -610,6 +612,43 @@ Applies to declarations, literals, named function types, and interface methods.
 + func send(target Target, options SendOptions)
 ```
 
+<a id="leg052-prefer-verb-function-names"></a>
+
+### `LEG052 prefer-verb-function-names`
+
+Opt-in. Flags obvious payload-first function names such as `dataFn` and
+`valueFunction`. Constructors and canonical methods such as `New`, `String`,
+`Error`, `Len`, `Close`, `Read`, and `Write` are exempt.
+
+#### do / don't
+
+```diff
+- func dataFn() {}
++ func getData() {}
+```
+
+<a id="leg053-prefer-boolean-prefixes"></a>
+
+### `LEG053 prefer-boolean-prefixes`
+
+Opt-in. Applies to syntactically declared `bool` fields, parameters, and
+results. Prefer `is`, `has`, `can`, `should`, or `will`; idiomatic states such
+as `ok`, `done`, `ready`, `valid`, `enabled`, `disabled`, and `found` are
+exempt. Type aliases are not inferred by this syntax-only rule.
+
+#### do / don't
+
+```diff
+- active bool
++ isActive bool
+```
+
+The naming guidance is informed by [Effective Go](https://go.dev/doc/effective_go#names),
+[Go Code Review Comments](https://go.dev/wiki/CodeReviewComments), and
+[Revive's `var-naming` rule](https://github.com/mgechev/revive/blob/master/RULES_DESCRIPTIONS.md#var-naming).
+This project implements the additional function and boolean heuristics as
+native `go/analysis` rules; no Revive source is copied.
+
 ## Configure
 
 <!-- golangci-lint configuration derived from .golangci.yml and internal/analyzers/settings.go -->
@@ -643,6 +682,9 @@ linters:
           max-function-lines: 20
           max-function-params: 5
           max-naked-return-lines: 5
+          enabled-rules:
+            - prefer-verb-function-names
+            - prefer-boolean-prefixes
           disabled-rules:
             - prefer-guard-clauses
 ```
