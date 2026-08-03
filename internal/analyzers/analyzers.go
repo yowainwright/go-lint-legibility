@@ -74,6 +74,8 @@ func idiomRuleSpecs(settings Settings) []ruleSpec {
 		newNoNakedReturns(settings),
 		newPreferLowercaseErrorStrings(),
 		newMaxFunctionParams(settings),
+		newPreferVerbFunctionNames(),
+		newPreferBooleanPrefixes(),
 	}
 }
 
