@@ -31,6 +31,11 @@ if [ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]; then
   exit 1
 fi
 version="$(svu next)"
+current="$(svu current)"
+if [ "$version" = "$current" ]; then
+  echo "nothing to release: no feat or fix commits since $current"
+  exit 0
+fi
 echo "tagging $version"
 git tag "$version"
 git push origin "$version"
