@@ -211,15 +211,40 @@ func runAnalyzerWithFileSet(
 	return diagnostics, fileSet
 }
 
+func runAnalyzerWithFiles(
+	t *testing.T,
+	analyzer *analysis.Analyzer,
+	fileSet *token.FileSet,
+	files []*ast.File,
+) []analysis.Diagnostic {
+	t.Helper()
+
+	var diagnostics []analysis.Diagnostic
+	pass := analyzerPassWithFiles(fileSet, files, &diagnostics)
+	runAnalysis(t, analyzer, pass)
+
+	return diagnostics
+}
+
 func parseAnalyzerFile(
 	t *testing.T,
 	fileSet *token.FileSet,
 	filename string,
 	source string,
 ) *ast.File {
+	return parseAnalyzerFileWithMode(t, fileSet, filename, source, parser.ParseComments)
+}
+
+func parseAnalyzerFileWithMode(
+	t *testing.T,
+	fileSet *token.FileSet,
+	filename string,
+	source string,
+	mode parser.Mode,
+) *ast.File {
 	t.Helper()
 
-	file, err := parser.ParseFile(fileSet, filename, source, parser.ParseComments)
+	file, err := parser.ParseFile(fileSet, filename, source, mode)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -232,9 +257,18 @@ func analyzerPass(
 	file *ast.File,
 	diagnostics *[]analysis.Diagnostic,
 ) *analysis.Pass {
+	files := []*ast.File{file}
+	return analyzerPassWithFiles(fileSet, files, diagnostics)
+}
+
+func analyzerPassWithFiles(
+	fileSet *token.FileSet,
+	files []*ast.File,
+	diagnostics *[]analysis.Diagnostic,
+) *analysis.Pass {
 	return &analysis.Pass{
 		Fset:  fileSet,
-		Files: []*ast.File{file},
+		Files: files,
 		Report: func(diagnostic analysis.Diagnostic) {
 			*diagnostics = append(*diagnostics, diagnostic)
 		},

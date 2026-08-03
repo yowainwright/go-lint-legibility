@@ -29,6 +29,7 @@ func (p *Plugin) BuildAnalyzers() ([]*analysis.Analyzer, error) {
 	return analyzers.New(p.settings), nil
 }
 
+//nolint:legibility // LEG042: register.LinterPlugin requires this method name.
 func (p *Plugin) GetLoadMode() string {
 	return register.LoadModeSyntax
 }

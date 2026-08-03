@@ -15,6 +15,8 @@ const (
 	defaultMaxIfInitOperators          = 0
 	defaultMaxCompositeLiteralArgDepth = 1
 	defaultMaxFunctionLines            = 20
+	defaultMaxFunctionParams           = 5
+	defaultMaxNakedReturnLines         = 5
 	defaultNegativeConditionNamePrefix = "LEG"
 )
 
@@ -37,6 +39,8 @@ type Settings struct {
 	MaxIfInitOperators           *int     `json:"max-if-init-operators"`
 	MaxCompositeLiteralArgDepth  *int     `json:"max-composite-literal-arg-depth"`
 	MaxFunctionLines             *int     `json:"max-function-lines"`
+	MaxFunctionParams            *int     `json:"max-function-params"`
+	MaxNakedReturnLines          *int     `json:"max-naked-return-lines"`
 	NegativeConditionNamePattern string   `json:"negative-condition-name-pattern"`
 }
 
@@ -121,6 +125,14 @@ func (s Settings) maxCompositeLiteralArgDepth() int {
 
 func (s Settings) maxFunctionLines() int {
 	return intSetting(s.MaxFunctionLines, defaultMaxFunctionLines)
+}
+
+func (s Settings) maxFunctionParams() int {
+	return intSetting(s.MaxFunctionParams, defaultMaxFunctionParams)
+}
+
+func (s Settings) maxNakedReturnLines() int {
+	return intSetting(s.MaxNakedReturnLines, defaultMaxNakedReturnLines)
 }
 
 func intSetting(value *int, fallback int) int {
