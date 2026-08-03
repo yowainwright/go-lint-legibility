@@ -39,3 +39,21 @@ func TestPreferVerbFunctionNamesAllowsCanonicalValue(t *testing.T) {
 	diagnostics := runAnalyzer(t, analyzer, "p.go", source)
 	requireDiagnosticsCount(t, diagnostics, 0)
 }
+
+func TestPreferVerbFunctionNamesHandlesUnicodeBoundaries(t *testing.T) {
+	settings := Settings{EnabledRules: []string{"prefer-verb-function-names"}}
+	source := "package p\n\nfunc dataéléments() {}\n"
+
+	analyzer := analyzerByRuleWithSettings(t, "prefer-verb-function-names", settings)
+	diagnostics := runAnalyzer(t, analyzer, "p.go", source)
+	requireDiagnosticsCount(t, diagnostics, 0)
+}
+
+func TestPreferBooleanPrefixesHandlesUnicodeBoundaries(t *testing.T) {
+	settings := Settings{EnabledRules: []string{"prefer-boolean-prefixes"}}
+	source := "package p\n\nvar isélément bool\n"
+
+	analyzer := analyzerByRuleWithSettings(t, "prefer-boolean-prefixes", settings)
+	diagnostics := runAnalyzer(t, analyzer, "p.go", source)
+	requireDiagnosticsCount(t, diagnostics, 1)
+}

@@ -4,6 +4,7 @@ import (
 	"go/ast"
 	"strings"
 	"unicode"
+	"unicode/utf8"
 
 	"golang.org/x/tools/go/analysis"
 )
@@ -109,7 +110,8 @@ func hasWordPrefix(name string, prefix string) bool {
 		return true
 	}
 
-	return unicode.IsUpper(rune(name[len(prefix)]))
+	next, _ := utf8.DecodeRuneInString(name[len(prefix):])
+	return unicode.IsUpper(next)
 }
 
 func checkBooleanNames(pass *analysis.Pass) {
