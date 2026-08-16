@@ -9,7 +9,7 @@ import (
 
 func newPreferSwitchOverLongIfChain(settings Settings) ruleSpec {
 	min := settings.minSwitchChainLength()
-	return newAnalyzer(
+	return newInspectingAnalyzer(
 		"LEG034",
 		"prefer-switch-over-long-if-chain",
 		"Prefer switch over long if chains that compare the same value.",
@@ -34,26 +34,20 @@ func newNoComplexIfInit(settings Settings) ruleSpec {
 }
 
 func checkSwitchableIfChains(pass *analysis.Pass, min int) {
-	parents := buildParentMap(pass.Files)
-	for _, file := range pass.Files {
-		ast.Inspect(file, func(node ast.Node) bool {
-			stmt, ok := node.(*ast.IfStmt)
-			if ok {
-				checkSwitchableIfChain(pass, parents, stmt, min)
-			}
-
-			return true
-		})
-	}
+	ifTypes := []ast.Node{(*ast.IfStmt)(nil)}
+	inspectCursors(pass, ifTypes, func(cursor syntaxCursor) {
+		statement := cursor.Node().(*ast.IfStmt)
+		checkSwitchableIfChain(pass, parentNode(cursor), statement, min)
+	})
 }
 
 func checkSwitchableIfChain(
 	pass *analysis.Pass,
-	parents map[ast.Node]ast.Node,
+	parent ast.Node,
 	stmt *ast.IfStmt,
 	min int,
 ) {
-	if isElseIf(parents, stmt) {
+	if isElseIf(parent, stmt) {
 		return
 	}
 
@@ -83,13 +77,13 @@ func reportSwitchableIfChain(pass *analysis.Pass, stmt *ast.IfStmt) {
 	)
 }
 
-func isElseIf(parents map[ast.Node]ast.Node, stmt *ast.IfStmt) bool {
-	parent, ok := parents[stmt].(*ast.IfStmt)
+func isElseIf(parent ast.Node, stmt *ast.IfStmt) bool {
+	parentIf, ok := parent.(*ast.IfStmt)
 	if !ok {
 		return false
 	}
 
-	return parent.Else == stmt
+	return parentIf.Else == stmt
 }
 
 func collectIfChainSubjects(pass *analysis.Pass, stmt *ast.IfStmt) []string {

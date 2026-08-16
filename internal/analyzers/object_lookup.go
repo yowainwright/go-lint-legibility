@@ -14,7 +14,7 @@ type lookupPart struct {
 
 func newPreferObjectLookup(settings Settings) ruleSpec {
 	min := settings.minObjectLookupChainLength()
-	return newAnalyzer(
+	return newInspectingAnalyzer(
 		"LEG024",
 		"prefer-object-lookup",
 		"Prefer set or map lookups over long equality-or chains.",
@@ -26,26 +26,20 @@ func newPreferObjectLookup(settings Settings) ruleSpec {
 }
 
 func checkObjectLookup(pass *analysis.Pass, min int) {
-	parents := buildParentMap(pass.Files)
-	for _, file := range pass.Files {
-		ast.Inspect(file, func(node ast.Node) bool {
-			expression, ok := node.(*ast.BinaryExpr)
-			if ok {
-				checkObjectLookupExpression(pass, parents, expression, min)
-			}
-
-			return true
-		})
-	}
+	binaryTypes := []ast.Node{(*ast.BinaryExpr)(nil)}
+	inspectCursors(pass, binaryTypes, func(cursor syntaxCursor) {
+		expression := cursor.Node().(*ast.BinaryExpr)
+		checkObjectLookupExpression(pass, parentNode(cursor), expression, min)
+	})
 }
 
 func checkObjectLookupExpression(
 	pass *analysis.Pass,
-	parents map[ast.Node]ast.Node,
+	parent ast.Node,
 	expression *ast.BinaryExpr,
 	min int,
 ) {
-	if !isTopLevelOrExpression(parents, expression) {
+	if !isTopLevelOrExpression(parent, expression) {
 		return
 	}
 
@@ -57,12 +51,12 @@ func checkObjectLookupExpression(
 	reportObjectLookup(pass, expression)
 }
 
-func isTopLevelOrExpression(parents map[ast.Node]ast.Node, expression *ast.BinaryExpr) bool {
+func isTopLevelOrExpression(parent ast.Node, expression *ast.BinaryExpr) bool {
 	if expression.Op != token.LOR {
 		return false
 	}
 
-	return !isNestedOr(parents, expression)
+	return !isNestedOr(parent)
 }
 
 func hasObjectLookupParts(parts []lookupPart, min int) bool {
@@ -117,13 +111,13 @@ func equalityLookupPart(pass *analysis.Pass, expression *ast.BinaryExpr) []looku
 	return nil
 }
 
-func isNestedOr(parents map[ast.Node]ast.Node, expression *ast.BinaryExpr) bool {
-	parent, ok := parents[expression].(*ast.BinaryExpr)
+func isNestedOr(parent ast.Node) bool {
+	parentExpression, ok := parent.(*ast.BinaryExpr)
 	if !ok {
 		return false
 	}
 
-	return parent.Op == token.LOR
+	return parentExpression.Op == token.LOR
 }
 
 func sameLookupKey(parts []lookupPart) bool {

@@ -311,16 +311,6 @@ func appendIdentifier(identifiers []*ast.Ident, expression ast.Expr) []*ast.Iden
 	return append(identifiers, identifier)
 }
 
-func enclosingFunction(node ast.Node, parents map[ast.Node]ast.Node) ast.Node {
-	for parent := parents[node]; parent != nil; parent = parents[parent] {
-		if functionBody(parent) != nil {
-			return parent
-		}
-	}
-
-	return nil
-}
-
 type declarationScan struct {
 	function ast.Node
 	name     string

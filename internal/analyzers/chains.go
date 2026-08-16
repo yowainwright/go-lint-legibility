@@ -8,7 +8,7 @@ import (
 
 func newMaxArrayChainDepth(settings Settings) ruleSpec {
 	max := settings.maxArrayChainDepth()
-	return newAnalyzer(
+	return newInspectingAnalyzer(
 		"LEG011",
 		"max-array-chain-depth",
 		"Limit consecutive collection-style method chains.",
@@ -20,26 +20,20 @@ func newMaxArrayChainDepth(settings Settings) ruleSpec {
 }
 
 func checkCallChains(pass *analysis.Pass, max int) {
-	parents := buildParentMap(pass.Files)
-	for _, file := range pass.Files {
-		ast.Inspect(file, func(node ast.Node) bool {
-			call, ok := node.(*ast.CallExpr)
-			if ok {
-				checkCallChain(pass, parents, call, max)
-			}
-
-			return true
-		})
-	}
+	callTypes := []ast.Node{(*ast.CallExpr)(nil)}
+	inspectCursors(pass, callTypes, func(cursor syntaxCursor) {
+		call := cursor.Node().(*ast.CallExpr)
+		checkCallChain(pass, parentNode(cursor), call, max)
+	})
 }
 
 func checkCallChain(
 	pass *analysis.Pass,
-	parents map[ast.Node]ast.Node,
+	parent ast.Node,
 	call *ast.CallExpr,
 	max int,
 ) {
-	if isNestedChainCall(parents, call) {
+	if isNestedChainCall(parent) {
 		return
 	}
 
@@ -61,8 +55,8 @@ func reportCallChain(pass *analysis.Pass, call *ast.CallExpr) {
 	)
 }
 
-func isNestedChainCall(parents map[ast.Node]ast.Node, call *ast.CallExpr) bool {
-	_, ok := parents[call].(*ast.SelectorExpr)
+func isNestedChainCall(parent ast.Node) bool {
+	_, ok := parent.(*ast.SelectorExpr)
 	return ok
 }
 

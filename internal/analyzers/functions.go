@@ -21,7 +21,7 @@ func newMaxFunctionLines(settings Settings) ruleSpec {
 
 func newMaxFunctionParams(settings Settings) ruleSpec {
 	max := settings.maxFunctionParams()
-	return newAnalyzer(
+	return newInspectingAnalyzer(
 		"LEG051",
 		"max-function-params",
 		"Limit the number of parameters in a function signature.",
@@ -62,24 +62,18 @@ func checkFunctionLineBudget(pass *analysis.Pass, node ast.Node, max int) {
 }
 
 func checkFunctionParams(pass *analysis.Pass, max int) {
-	parents := buildParentMap(pass.Files)
-	for _, file := range pass.Files {
-		ast.Inspect(file, func(node ast.Node) bool {
-			funcType, ok := node.(*ast.FuncType)
-			if ok {
-				checkFunctionParamBudget(pass, funcType, max, parents)
-			}
-
-			return true
-		})
-	}
+	functionTypes := []ast.Node{(*ast.FuncType)(nil)}
+	inspectCursors(pass, functionTypes, func(cursor syntaxCursor) {
+		funcType := cursor.Node().(*ast.FuncType)
+		checkFunctionParamBudget(pass, funcType, max, parentNode(cursor))
+	})
 }
 
 func checkFunctionParamBudget(
 	pass *analysis.Pass,
 	funcType *ast.FuncType,
 	max int,
-	parents map[ast.Node]ast.Node,
+	parent ast.Node,
 ) {
 	if fieldCount(funcType.Params) <= max {
 		return
@@ -87,23 +81,23 @@ func checkFunctionParamBudget(
 
 	report(
 		pass,
-		functionTypeReportNode(funcType, parents),
+		functionTypeReportNode(funcType, parent),
 		"LEG051",
 		"max-function-params",
 		"Function takes too many parameters. Group related values into a struct.",
 	)
 }
 
-func functionTypeReportNode(funcType *ast.FuncType, parents map[ast.Node]ast.Node) ast.Node {
-	switch parent := parents[funcType].(type) {
+func functionTypeReportNode(funcType *ast.FuncType, parent ast.Node) ast.Node {
+	switch typed := parent.(type) {
 	case *ast.FuncDecl:
-		return parent.Name
+		return typed.Name
 	case *ast.Field:
-		if len(parent.Names) > 0 {
-			return parent.Names[0]
+		if len(typed.Names) > 0 {
+			return typed.Names[0]
 		}
 	case *ast.TypeSpec:
-		return parent.Name
+		return typed.Name
 	}
 
 	return funcType
