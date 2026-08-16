@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"golang.org/x/tools/go/analysis"
+	"golang.org/x/tools/go/analysis/passes/inspect"
 )
 
 func TestMaxExpressionOperatorsReportsComplexExpression(t *testing.T) {
@@ -150,9 +151,19 @@ func TestSpecialRuleSelectorsIgnoreCase(t *testing.T) {
 func TestAllAnalyzersUseSyntaxOnlyInputs(t *testing.T) {
 	settings := Settings{EnabledRules: []string{"all"}}
 	for _, analyzer := range New(settings) {
-		if len(analyzer.Requires) != 0 {
-			t.Fatalf("%s should not require another analyzer", analyzer.Name)
+		//nolint:legibility // Requirements are a fixed, single-entry syntax dependency.
+		for _, requirement := range analyzer.Requires {
+			if requirement != inspect.Analyzer {
+				t.Fatalf("%s requires non-syntax analyzer %s", analyzer.Name, requirement.Name)
+			}
 		}
+	}
+}
+
+func TestAnalyzersAreValid(t *testing.T) {
+	settings := Settings{EnabledRules: []string{"all"}}
+	if err := analysis.Validate(New(settings)); err != nil {
+		t.Fatal(err)
 	}
 }
 
@@ -278,10 +289,30 @@ func analyzerPassWithFiles(
 func runAnalysis(t *testing.T, analyzer *analysis.Analyzer, pass *analysis.Pass) {
 	t.Helper()
 
+	pass.ResultOf = runRequiredAnalyses(t, analyzer, pass)
 	_, err := analyzer.Run(pass)
 	if err != nil {
 		t.Fatal(err)
 	}
+}
+
+func runRequiredAnalyses(
+	t *testing.T,
+	analyzer *analysis.Analyzer,
+	pass *analysis.Pass,
+) map[*analysis.Analyzer]any {
+	t.Helper()
+
+	results := make(map[*analysis.Analyzer]any, len(analyzer.Requires))
+	for _, requirement := range analyzer.Requires {
+		result, err := requirement.Run(pass)
+		if err != nil {
+			t.Fatal(err)
+		}
+		results[requirement] = result
+	}
+
+	return results
 }
 
 func readTestSource(t *testing.T, name string) string {

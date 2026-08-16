@@ -46,6 +46,12 @@ brew tap yowainwright/golangci-lint-legibility https://github.com/yowainwright/g
 brew install golangci-lint-legibility
 ```
 
+### Agent skill
+
+<!-- agent workflow derived from skills/golangci-lint-legibility -->
+
+Install the [companion Agent Skill](skills/golangci-lint-legibility) from this repository to configure the linter, resolve `LEG###` diagnostics, change analyzer rules, or measure performance. Invoke it as `$golangci-lint-legibility`.
+
 ## Rules
 
 <!-- rules derived from internal/analyzers/analyzers.go and analyzer constructors -->
@@ -702,7 +708,7 @@ See the `golangci-lint` [module plugin docs](https://golangci-lint.run/docs/plug
 
 ## Recipes
 
-<!-- workflow recipes derived from consumer binary names, golangci-lint run flags, CI checkout behavior, and comment policy settings -->
+<!-- workflow recipes derived from consumer binary names, golangci-lint run flags, CI checkout behavior, comment policy settings, and skills/golangci-lint-legibility -->
 
 The examples use the locally built binary. Homebrew users can omit `./bin/`.
 
@@ -780,6 +786,8 @@ Write normal Go comments. No role label is needed.
 
 ### Agent workflow
 
+Use the [companion Agent Skill](skills/golangci-lint-legibility) for the complete consumer, contributor, and performance workflow.
+
 ```sh
 ./bin/legibility-golangci-lint run --new-from-rev=HEAD ./...
 ```
@@ -851,7 +859,7 @@ Rule selectors accept rule codes such as `LEG009`, rule names such as `prefer-ea
 
 ## Develop
 
-<!-- development commands derived from Makefile and tests/e2e/Dockerfile -->
+<!-- development commands derived from Makefile, internal/analyzers/performance_test.go, and tests/e2e/Dockerfile -->
 
 ```sh
 make tidy-check
@@ -859,6 +867,7 @@ make test
 make vet
 make e2e
 make lint
+go test ./internal/analyzers -run '^$' -bench Benchmark -benchmem -count=10
 ```
 
 `make e2e` requires Docker. It uses the [E2E image](tests/e2e/Dockerfile) to build the custom linter and run it against the fixture projects. `make lint` builds the custom binary locally and runs it against this repository.

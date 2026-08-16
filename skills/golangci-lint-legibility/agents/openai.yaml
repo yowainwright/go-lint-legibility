@@ -1,0 +1,4 @@
+interface:
+  display_name: "Go Legibility"
+  short_description: "Use the Go legibility linter"
+  default_prompt: "Use $golangci-lint-legibility to resolve the current finding."

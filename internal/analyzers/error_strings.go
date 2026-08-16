@@ -13,7 +13,7 @@ import (
 const errorStringPunctuation = ".!:"
 
 func newPreferLowercaseErrorStrings() ruleSpec {
-	return newAnalyzer(
+	return newInspectingAnalyzer(
 		"LEG050",
 		"prefer-lowercase-error-strings",
 		"Prefer lowercase error strings without trailing punctuation.",
@@ -25,27 +25,26 @@ func newPreferLowercaseErrorStrings() ruleSpec {
 }
 
 func checkErrorStrings(pass *analysis.Pass) {
-	parents := buildParentMap(pass.Files)
+	constructorsByFile := make(map[*ast.File]map[string]bool, len(pass.Files))
 	for _, file := range pass.Files {
-		constructors := errorStringConstructorNames(file)
-		ast.Inspect(file, func(node ast.Node) bool {
-			call, ok := node.(*ast.CallExpr)
-			if ok {
-				checkErrorStringCall(pass, call, constructors, parents)
-			}
-
-			return true
-		})
+		constructorsByFile[file] = errorStringConstructorNames(file)
 	}
+
+	callTypes := []ast.Node{(*ast.CallExpr)(nil)}
+	inspectCursors(pass, callTypes, func(cursor syntaxCursor) {
+		call := cursor.Node().(*ast.CallExpr)
+		constructors := constructorsByFile[enclosingFile(cursor)]
+		checkErrorStringCall(pass, call, constructors, enclosingFunction(cursor))
+	})
 }
 
 func checkErrorStringCall(
 	pass *analysis.Pass,
 	call *ast.CallExpr,
 	constructors map[string]bool,
-	parents map[ast.Node]ast.Node,
+	function ast.Node,
 ) {
-	literal, ok := errorStringLiteral(call, constructors, parents)
+	literal, ok := errorStringLiteral(call, constructors, function)
 	if !ok {
 		return
 	}
@@ -80,9 +79,9 @@ func reportErrorString(pass *analysis.Pass, literal *ast.BasicLit, message strin
 func errorStringLiteral(
 	call *ast.CallExpr,
 	constructors map[string]bool,
-	parents map[ast.Node]ast.Node,
+	function ast.Node,
 ) (*ast.BasicLit, bool) {
-	if !isErrorStringConstructor(call, constructors, parents) {
+	if !isErrorStringConstructor(call, constructors, function) {
 		return nil, false
 	}
 
@@ -101,7 +100,7 @@ func errorStringLiteral(
 func isErrorStringConstructor(
 	call *ast.CallExpr,
 	constructors map[string]bool,
-	parents map[ast.Node]ast.Node,
+	function ast.Node,
 ) bool {
 	pkg, method, found := errorStringSelector(call)
 	if !found {
@@ -110,7 +109,7 @@ func isErrorStringConstructor(
 	if pkg.Obj != nil {
 		return false
 	}
-	if localNameShadowsCall(call, pkg.Name, parents) {
+	if localNameShadowsCall(call, pkg.Name, function) {
 		return false
 	}
 
@@ -132,8 +131,7 @@ func errorStringSelector(call *ast.CallExpr) (*ast.Ident, string, bool) {
 	return pkg, selector.Sel.Name, true
 }
 
-func localNameShadowsCall(call *ast.CallExpr, name string, parents map[ast.Node]ast.Node) bool {
-	function := enclosingFunction(call, parents)
+func localNameShadowsCall(call *ast.CallExpr, name string, function ast.Node) bool {
 	if function == nil {
 		return false
 	}

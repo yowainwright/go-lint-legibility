@@ -16,7 +16,7 @@ const (
 )
 
 func newPreferRangeLoop() ruleSpec {
-	return newAnalyzer(
+	return newInspectingAnalyzer(
 		"LEG047",
 		"prefer-range-loop",
 		"Prefer a range clause over an index counter loop.",
@@ -28,21 +28,15 @@ func newPreferRangeLoop() ruleSpec {
 }
 
 func checkIndexLoops(pass *analysis.Pass) {
-	parents := buildParentMap(pass.Files)
-	for _, file := range pass.Files {
-		ast.Inspect(file, func(node ast.Node) bool {
-			stmt, ok := node.(*ast.ForStmt)
-			if ok {
-				checkIndexLoop(pass, stmt, parents)
-			}
-
-			return true
-		})
-	}
+	loopTypes := []ast.Node{(*ast.ForStmt)(nil)}
+	inspectCursors(pass, loopTypes, func(cursor syntaxCursor) {
+		statement := cursor.Node().(*ast.ForStmt)
+		checkIndexLoop(pass, statement, enclosingFunction(cursor))
+	})
 }
 
-func checkIndexLoop(pass *analysis.Pass, stmt *ast.ForStmt, parents map[ast.Node]ast.Node) {
-	if !shouldPreferRange(stmt, parents) {
+func checkIndexLoop(pass *analysis.Pass, stmt *ast.ForStmt, function ast.Node) {
+	if !shouldPreferRange(stmt, function) {
 		return
 	}
 
@@ -55,13 +49,12 @@ func checkIndexLoop(pass *analysis.Pass, stmt *ast.ForStmt, parents map[ast.Node
 	)
 }
 
-func shouldPreferRange(stmt *ast.ForStmt, parents map[ast.Node]ast.Node) bool {
+func shouldPreferRange(stmt *ast.ForStmt, function ast.Node) bool {
 	collection, ok := indexLoopCollectionName(stmt)
 	if !ok {
 		return false
 	}
 
-	function := enclosingFunction(stmt, parents)
 	if function == nil {
 		return false
 	}

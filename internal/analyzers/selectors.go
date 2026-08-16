@@ -8,7 +8,7 @@ import (
 
 func newNoDeepSelectorChain(settings Settings) ruleSpec {
 	max := settings.maxSelectorChainDepth()
-	return newAnalyzer(
+	return newInspectingAnalyzer(
 		"LEG031",
 		"no-deep-selector-chain",
 		"Avoid deep selector or index chains without named intermediate values.",
@@ -20,26 +20,21 @@ func newNoDeepSelectorChain(settings Settings) ruleSpec {
 }
 
 func checkSelectorChains(pass *analysis.Pass, max int) {
-	parents := buildParentMap(pass.Files)
-	for _, file := range pass.Files {
-		ast.Inspect(file, func(node ast.Node) bool {
-			expression, ok := node.(ast.Expr)
-			if ok {
-				checkSelectorChain(pass, parents, expression, max)
-			}
-
-			return true
-		})
-	}
+	inspectCursors(pass, nil, func(cursor syntaxCursor) {
+		expression, ok := cursor.Node().(ast.Expr)
+		if ok {
+			checkSelectorChain(pass, parentNode(cursor), expression, max)
+		}
+	})
 }
 
 func checkSelectorChain(
 	pass *analysis.Pass,
-	parents map[ast.Node]ast.Node,
+	parent ast.Node,
 	expression ast.Expr,
 	max int,
 ) {
-	if isNestedAccessChain(parents, expression) {
+	if isNestedAccessChain(parent, expression) {
 		return
 	}
 
@@ -61,8 +56,7 @@ func reportSelectorChain(pass *analysis.Pass, expression ast.Expr) {
 	)
 }
 
-func isNestedAccessChain(parents map[ast.Node]ast.Node, expression ast.Expr) bool {
-	parent := parents[expression]
+func isNestedAccessChain(parent ast.Node, expression ast.Expr) bool {
 	switch typed := parent.(type) {
 	case *ast.SelectorExpr:
 		return typed.X == expression
