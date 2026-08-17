@@ -1,8 +1,8 @@
 class GolangciLintLegibility < Formula
-  source_url = "https://github.com/yowainwright/golangci-lint-legibility/releases/download/v0.2.0/" \
-               "golangci-lint-legibility_0.2.0_source.tar.gz"
-  source_sha = "02dc8216777c6504d9240329be5c4b9d" \
-               "ab2dce41a929fc03a1a2d0682c85e273"
+  source_url = "https://github.com/yowainwright/golangci-lint-legibility/releases/download/v0.3.0/" \
+               "golangci-lint-legibility_0.3.0_source.tar.gz"
+  source_sha = "0c3d196573d71c1aa81c9fb29cc373ae" \
+               "a0d23ca26ad3c7689bcd568b7f092680"
 
   desc "Syntax-only Go readability rules for golangci-lint"
   homepage "https://github.com/yowainwright/golangci-lint-legibility"
