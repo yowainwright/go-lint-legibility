@@ -14,20 +14,22 @@ import (
 
 const (
 	benchmarkLegacyASTWalks        = 35
-	benchmarkCurrentASTWalks       = 26
+	benchmarkCurrentFileWalks      = 20
 	benchmarkLegacyParentMapBuilds = 7
 )
 
 var (
-	benchmarkCallTypes     = []ast.Node{(*ast.CallExpr)(nil)}
-	benchmarkFunctionTypes = []ast.Node{(*ast.FuncType)(nil)}
-	benchmarkIfTypes       = []ast.Node{(*ast.IfStmt)(nil)}
-	benchmarkLoopTypes     = []ast.Node{(*ast.ForStmt)(nil)}
-	benchmarkBinaryTypes   = []ast.Node{(*ast.BinaryExpr)(nil)}
+	benchmarkCallTypes         = []ast.Node{(*ast.CallExpr)(nil)}
+	benchmarkFunctionTypes     = []ast.Node{(*ast.FuncType)(nil)}
+	benchmarkFunctionRootTypes = []ast.Node{(*ast.FuncDecl)(nil), (*ast.FuncLit)(nil)}
+	benchmarkIfTypes           = []ast.Node{(*ast.IfStmt)(nil)}
+	benchmarkLoopTypes         = []ast.Node{(*ast.ForStmt)(nil)}
+	benchmarkBinaryTypes       = []ast.Node{(*ast.BinaryExpr)(nil)}
 )
 
 func BenchmarkASTTraversal(b *testing.B) {
 	files := parseBenchmarkFiles(b)
+	subtrees := benchmarkSubtreeRoots(b, files)
 
 	b.Run("legacy_ast_inspect", func(b *testing.B) {
 		for b.Loop() {
@@ -38,7 +40,7 @@ func BenchmarkASTTraversal(b *testing.B) {
 
 	b.Run("current_shared_index", func(b *testing.B) {
 		for b.Loop() {
-			visits := visitCurrentTraversalShape(files)
+			visits := visitCurrentTraversalShape(files, subtrees)
 			assertBenchmarkWork(b, visits)
 		}
 	})
@@ -140,10 +142,53 @@ func visitFilesWithASTInspect(files []*ast.File) int {
 	return visits
 }
 
-func visitCurrentTraversalShape(files []*ast.File) int {
-	visits := visitWithASTInspect(files, benchmarkCurrentASTWalks)
+func benchmarkSubtreeRoots(b *testing.B, files []*ast.File) []ast.Node {
+	b.Helper()
+
+	index := inspector.New(files)
+	function := firstInspectorNode(index, benchmarkFunctionRootTypes)
+	loopNode := firstInspectorNode(index, benchmarkLoopTypes)
+	expression := firstInspectorNode(index, benchmarkBinaryTypes)
+	functionBlock := functionBody(function)
+	loop, isLoop := loopNode.(*ast.ForStmt)
+	hasAllRoots := functionBlock != nil && isLoop && expression != nil
+	if !hasAllRoots {
+		b.Fatal("benchmark subtree roots not found")
+	}
+	return []ast.Node{functionBlock, function, loop.Body, expression, function, loop.Body}
+}
+
+func firstInspectorNode(index *inspector.Inspector, types []ast.Node) ast.Node {
+	for cursor := range index.Root().Preorder(types...) {
+		return cursor.Node()
+	}
+	return nil
+}
+
+func visitCurrentTraversalShape(files []*ast.File, subtrees []ast.Node) int {
+	visits := visitWithASTInspect(files, benchmarkCurrentFileWalks)
+	visits += visitNodesWithASTInspect(subtrees)
 	index := inspector.New(files)
 	visits += visitCurrentInspectorNodes(index)
+	return visits
+}
+
+func visitNodesWithASTInspect(nodes []ast.Node) int {
+	visits := 0
+	for _, node := range nodes {
+		visits += visitNodeWithASTInspect(node)
+	}
+	return visits
+}
+
+func visitNodeWithASTInspect(root ast.Node) int {
+	visits := 0
+	ast.Inspect(root, func(node ast.Node) bool {
+		if node != nil {
+			visits++
+		}
+		return true
+	})
 	return visits
 }
 
