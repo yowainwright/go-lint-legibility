@@ -12,7 +12,7 @@ description = "Print the next semantic version"
 run = "svu next"
 
 [tasks.release]
-description = "Validate, tag the next version, and push the tag"
+description = "Validate and publish the next version; set RELEASE_VERSION to override"
 depends = ["check"]
 run = '''
 set -eu
@@ -21,20 +21,30 @@ if [ "$branch" != "main" ]; then
   echo "release must run from main (on $branch)" >&2
   exit 1
 fi
-if ! git diff --quiet || ! git diff --cached --quiet; then
+if [ -n "$(git status --porcelain --untracked-files=normal)" ]; then
   echo "working tree is dirty" >&2
   exit 1
 fi
-git fetch origin main
+git fetch --tags origin main
 if [ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]; then
   echo "local main is not in sync with origin/main" >&2
   exit 1
 fi
-version="$(svu next)"
 current="$(svu current)"
+version="$(svu next)"
+if [ -n "${RELEASE_VERSION:-}" ]; then
+  version="$RELEASE_VERSION"
+  patch="$(svu patch)"
+  minor="$(svu minor)"
+  major="$(svu major)"
+  if [ "$version" != "$patch" ] && [ "$version" != "$minor" ] && [ "$version" != "$major" ]; then
+    echo "RELEASE_VERSION must be $patch, $minor, or $major" >&2
+    exit 1
+  fi
+fi
 if [ "$version" = "$current" ]; then
-  echo "nothing to release: no feat or fix commits since $current"
-  exit 0
+  echo "no automatic version bump after $current; set RELEASE_VERSION explicitly" >&2
+  exit 1
 fi
 echo "tagging $version"
 git tag "$version"
