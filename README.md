@@ -27,7 +27,7 @@ destination: ./bin
 plugins:
   - module: github.com/yowainwright/golangci-lint-legibility
     import: github.com/yowainwright/golangci-lint-legibility/plugin
-    version: v0.2.0
+    version: v0.3.0
 ```
 
 Install `golangci-lint`, then build the custom binary:

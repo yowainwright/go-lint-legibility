@@ -151,11 +151,16 @@ func TestSpecialRuleSelectorsIgnoreCase(t *testing.T) {
 func TestAllAnalyzersUseSyntaxOnlyInputs(t *testing.T) {
 	settings := Settings{EnabledRules: []string{"all"}}
 	for _, analyzer := range New(settings) {
-		//nolint:legibility // Requirements are a fixed, single-entry syntax dependency.
-		for _, requirement := range analyzer.Requires {
-			if requirement != inspect.Analyzer {
-				t.Fatalf("%s requires non-syntax analyzer %s", analyzer.Name, requirement.Name)
-			}
+		assertSyntaxOnlyRequirements(t, analyzer)
+	}
+}
+
+func assertSyntaxOnlyRequirements(t *testing.T, analyzer *analysis.Analyzer) {
+	t.Helper()
+
+	for _, requirement := range analyzer.Requires {
+		if requirement != inspect.Analyzer {
+			t.Fatalf("%s requires non-syntax analyzer %s", analyzer.Name, requirement.Name)
 		}
 	}
 }

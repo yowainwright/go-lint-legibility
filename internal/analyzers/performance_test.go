@@ -14,22 +14,33 @@ import (
 
 const (
 	benchmarkLegacyASTWalks        = 35
+	benchmarkCurrentFileWalks      = 20
 	benchmarkLegacyParentMapBuilds = 7
+)
+
+var (
+	benchmarkCallTypes         = []ast.Node{(*ast.CallExpr)(nil)}
+	benchmarkFunctionTypes     = []ast.Node{(*ast.FuncType)(nil)}
+	benchmarkFunctionRootTypes = []ast.Node{(*ast.FuncDecl)(nil), (*ast.FuncLit)(nil)}
+	benchmarkIfTypes           = []ast.Node{(*ast.IfStmt)(nil)}
+	benchmarkLoopTypes         = []ast.Node{(*ast.ForStmt)(nil)}
+	benchmarkBinaryTypes       = []ast.Node{(*ast.BinaryExpr)(nil)}
 )
 
 func BenchmarkASTTraversal(b *testing.B) {
 	files := parseBenchmarkFiles(b)
+	subtrees := benchmarkSubtreeRoots(b, files)
 
-	b.Run("repeated_ast_inspect", func(b *testing.B) {
+	b.Run("legacy_ast_inspect", func(b *testing.B) {
 		for b.Loop() {
 			visits := visitWithASTInspect(files, benchmarkLegacyASTWalks)
 			assertBenchmarkWork(b, visits)
 		}
 	})
 
-	b.Run("shared_inspector", func(b *testing.B) {
+	b.Run("current_shared_index", func(b *testing.B) {
 		for b.Loop() {
-			visits := visitWithInspector(files)
+			visits := visitCurrentTraversalShape(files, subtrees)
 			assertBenchmarkWork(b, visits)
 		}
 	})
@@ -45,9 +56,9 @@ func BenchmarkParentLookup(b *testing.B) {
 		}
 	})
 
-	b.Run("shared_inspector", func(b *testing.B) {
+	b.Run("current_shared_index", func(b *testing.B) {
 		for b.Loop() {
-			parents := visitWithInspector(files)
+			parents := visitCurrentParentShape(files)
 			assertBenchmarkWork(b, parents)
 		}
 	})
@@ -131,9 +142,76 @@ func visitFilesWithASTInspect(files []*ast.File) int {
 	return visits
 }
 
-func visitWithInspector(files []*ast.File) int {
+func benchmarkSubtreeRoots(b *testing.B, files []*ast.File) []ast.Node {
+	b.Helper()
+
 	index := inspector.New(files)
-	return visitInspectorParents(index)
+	function := firstInspectorNode(index, benchmarkFunctionRootTypes)
+	loopNode := firstInspectorNode(index, benchmarkLoopTypes)
+	expression := firstInspectorNode(index, benchmarkBinaryTypes)
+	functionBlock := functionBody(function)
+	loop, isLoop := loopNode.(*ast.ForStmt)
+	hasAllRoots := functionBlock != nil && isLoop && expression != nil
+	if !hasAllRoots {
+		b.Fatal("benchmark subtree roots not found")
+	}
+	return []ast.Node{functionBlock, function, loop.Body, expression, function, loop.Body}
+}
+
+func firstInspectorNode(index *inspector.Inspector, types []ast.Node) ast.Node {
+	for cursor := range index.Root().Preorder(types...) {
+		return cursor.Node()
+	}
+	return nil
+}
+
+func visitCurrentTraversalShape(files []*ast.File, subtrees []ast.Node) int {
+	visits := visitWithASTInspect(files, benchmarkCurrentFileWalks)
+	visits += visitNodesWithASTInspect(subtrees)
+	index := inspector.New(files)
+	visits += visitCurrentInspectorNodes(index)
+	return visits
+}
+
+func visitNodesWithASTInspect(nodes []ast.Node) int {
+	visits := 0
+	for _, node := range nodes {
+		visits += visitNodeWithASTInspect(node)
+	}
+	return visits
+}
+
+func visitNodeWithASTInspect(root ast.Node) int {
+	visits := 0
+	ast.Inspect(root, func(node ast.Node) bool {
+		if node != nil {
+			visits++
+		}
+		return true
+	})
+	return visits
+}
+
+func visitCurrentInspectorNodes(index *inspector.Inspector) int {
+	visits := 0
+	visits += visitInspectorNodes(index, benchmarkCallTypes)
+	visits += visitInspectorNodes(index, benchmarkCallTypes)
+	visits += visitInspectorNodes(index, benchmarkFunctionTypes)
+	visits += visitInspectorNodes(index, benchmarkIfTypes)
+	visits += visitInspectorNodes(index, benchmarkLoopTypes)
+	visits += visitInspectorNodes(index, benchmarkBinaryTypes)
+	visits += visitInspectorNodes(index, nil)
+	return visits
+}
+
+func visitInspectorNodes(index *inspector.Inspector, types []ast.Node) int {
+	visits := 0
+	for cursor := range index.Root().Preorder(types...) {
+		if cursor.Node() != nil {
+			visits++
+		}
+	}
+	return visits
 }
 
 func buildParentMaps(files []*ast.File, builds int) int {
@@ -159,9 +237,26 @@ func buildParentMapForBenchmark(files []*ast.File) map[ast.Node]ast.Node {
 	return parents
 }
 
-func visitInspectorParents(index *inspector.Inspector) int {
+func visitCurrentParentShape(files []*ast.File) int {
+	index := inspector.New(files)
+	return visitCurrentInspectorParents(index)
+}
+
+func visitCurrentInspectorParents(index *inspector.Inspector) int {
 	parents := 0
-	for cursor := range index.Root().Preorder() {
+	parents += visitInspectorParents(index, benchmarkCallTypes)
+	parents += visitInspectorParents(index, benchmarkCallTypes)
+	parents += visitInspectorParents(index, benchmarkFunctionTypes)
+	parents += visitInspectorParents(index, benchmarkIfTypes)
+	parents += visitInspectorParents(index, benchmarkLoopTypes)
+	parents += visitInspectorParents(index, benchmarkBinaryTypes)
+	parents += visitInspectorParents(index, nil)
+	return parents
+}
+
+func visitInspectorParents(index *inspector.Inspector, types []ast.Node) int {
+	parents := 0
+	for cursor := range index.Root().Preorder(types...) {
 		if cursor.Parent().Node() != nil {
 			parents++
 		}
