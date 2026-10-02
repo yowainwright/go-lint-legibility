@@ -22,6 +22,7 @@ const (
 
 type Settings struct {
 	EnabledRules                 []string `json:"enabled-rules"`
+	AdditionalRules              []string `json:"additional-rules"`
 	DisabledRules                []string `json:"disabled-rules"`
 	CommentMatchers              []string `json:"comment-matchers"`
 	CommentPrefixIdentifiers     []string `json:"comment-prefix-identifiers"`
@@ -70,6 +71,10 @@ func (s Settings) RuleEnabled(code string, name string, defaultEnabled bool) boo
 	selected := defaultEnabled
 	if len(s.EnabledRules) > 0 {
 		selected = selectorMatchesAny(code, name, s.EnabledRules)
+	}
+
+	if !selected {
+		selected = selectorMatchesAny(code, name, s.AdditionalRules)
 	}
 
 	if !selected {

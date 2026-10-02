@@ -24,8 +24,34 @@ type ruleSpec struct {
 
 type syntaxCursor = inspector.Cursor
 
+type Rule struct {
+	Code           string
+	Name           string
+	Analyzer       string
+	DefaultEnabled bool
+}
+
 func New(settings Settings) []*analysis.Analyzer {
 	return enabledAnalyzers(settings, ruleSpecs(settings))
+}
+
+func Rules() []Rule {
+	specs := ruleSpecs(Settings{})
+	rules := make([]Rule, 0, len(specs))
+	for _, spec := range specs {
+		rules = append(rules, ruleFrom(spec))
+	}
+
+	return rules
+}
+
+func ruleFrom(spec ruleSpec) Rule {
+	return Rule{
+		Code:           spec.code,
+		Name:           spec.name,
+		Analyzer:       spec.analyzer.Name,
+		DefaultEnabled: spec.defaultEnabled,
+	}
 }
 
 func ruleSpecs(settings Settings) []ruleSpec {

@@ -1,0 +1,23 @@
+{
+  "max-expression-operators": { "max": "max-expression-operators" },
+  "hoist-if-operators": { "max": "max-if-operators" },
+  "max-control-flow-depth": { "max": "max-control-flow-depth" },
+  "max-array-chain-depth": { "max": "max-array-chain-depth" },
+  "no-computed-values": { "max": "max-computed-value-operators" },
+  "prefer-object-lookup": { "min": "min-object-lookup-chain-length" },
+  "require-filename-matches-dirname": { "min": "min-dirname-match-depth" },
+  "no-deep-selector-chain": { "max": "max-selector-chain-depth" },
+  "prefer-switch-over-long-if-chain": { "min": "min-switch-chain-length" },
+  "no-complex-if-init": { "max": "max-if-init-operators" },
+  "no-deep-composite-literal-arg": { "max": "max-composite-literal-arg-depth" },
+  "max-function-lines": { "max": "max-function-lines" },
+  "max-function-params": { "max": "max-function-params" },
+  "no-naked-returns": { "max": "max-naked-return-lines" },
+  "no-unmatched-comments": {
+    "matchers": "comment-matchers",
+    "prefixes": "comment-prefix-identifiers",
+    "suffixes": "comment-suffix-identifiers"
+  },
+  "no-automated-comment-attribution": { "identifiers": "automated-comment-identifiers" },
+  "prefer-positive-condition-names": { "pattern": "negative-condition-name-pattern" }
+}

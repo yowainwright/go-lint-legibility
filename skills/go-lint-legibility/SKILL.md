@@ -1,6 +1,6 @@
 ---
-name: golangci-lint-legibility
-description: Use, configure, diagnose, benchmark, and extend golangci-lint-legibility. Use when working with LEG diagnostics, legibility settings, Go readability findings, linter performance, or new and changed analyzer rules.
+name: go-lint-legibility
+description: Use, configure, diagnose, benchmark, and extend go-lint-legibility. Use when working with LEG diagnostics, legibility settings, Go readability findings, linter performance, or new and changed analyzer rules.
 ---
 
 # Go legibility
@@ -35,7 +35,7 @@ Choose the matching branch:
    rg -n "LEG[0-9]{3}|rule-name" README.md internal/analyzers .golangci.y*ml
    ```
 
-   In a consumer repository without the analyzer source, consult the upstream [rule catalog](https://github.com/yowainwright/golangci-lint-legibility#rules).
+   In a consumer repository without the analyzer source, consult the upstream [rule catalog](https://github.com/yowainwright/go-lint-legibility#rules).
 
 4. Fix the reported construct with the smallest semantics-preserving edit. Use named intermediate values, guard clauses, focused functions, or idiomatic Go when the selected rule calls for them.
 

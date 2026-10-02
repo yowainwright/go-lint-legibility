@@ -1,9 +1,31 @@
 version: 2
 
-project_name: golangci-lint-legibility
+project_name: go-lint-legibility
 
 builds:
-  - skip: true
+  - id: go-lint-legibility
+    main: ./cmd/go-lint-legibility
+    binary: go-lint-legibility
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X main.version={{.Version}}
+    goos:
+      - darwin
+      - linux
+    goarch:
+      - amd64
+      - arm64
+
+archives:
+  - id: go-lint-legibility
+    formats:
+      - tar.gz
+    name_template: "{{ .ProjectName }}-{{ .Os }}-{{ .Arch }}"
+    files:
+      - LICENSE
 
 source:
   enabled: true
@@ -23,7 +45,7 @@ changelog:
 release:
   github:
     owner: yowainwright
-    name: golangci-lint-legibility
+    name: go-lint-legibility
   mode: keep-existing
   draft: false
   prerelease: auto

@@ -31,7 +31,7 @@ body:
     id: versions
     attributes:
       label: Versions
-      description: Include Go, golangci-lint, and golangci-lint-legibility versions.
+      description: Include Go, golangci-lint (if used), and go-lint-legibility versions.
       placeholder: "go1.25.0, golangci-lint v2.12.2, legibility v0.1.0"
     validations:
       required: true

@@ -12,12 +12,9 @@
 
 .DS_Store
 
-# Beads / Dolt files (added by bd init)
 .dolt/
 *.db
-.beads-credential-key
 .claude/
 CLAUDE.md
-.beads/
 bin/
 *.exe

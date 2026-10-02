@@ -1,20 +1,129 @@
-# golangci-lint-legibility
+# go-lint-legibility
 
 <!-- package badges derived from GitHub workflows, go.mod, LICENSE, and release tags -->
 
-[![CI](https://github.com/yowainwright/golangci-lint-legibility/actions/workflows/ci.yml/badge.svg)](https://github.com/yowainwright/golangci-lint-legibility/actions/workflows/ci.yml)
-[![Go Reference](https://pkg.go.dev/badge/github.com/yowainwright/golangci-lint-legibility.svg)](https://pkg.go.dev/github.com/yowainwright/golangci-lint-legibility)
-[![GitHub release](https://img.shields.io/github/v/release/yowainwright/golangci-lint-legibility)](https://github.com/yowainwright/golangci-lint-legibility/releases)
-[![license](https://img.shields.io/github/license/yowainwright/golangci-lint-legibility)](LICENSE)
-[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/yowainwright/golangci-lint-legibility/badge)](https://scorecard.dev/viewer/?uri=github.com/yowainwright/golangci-lint-legibility)
+[![CI](https://github.com/yowainwright/go-lint-legibility/actions/workflows/ci.yml/badge.svg)](https://github.com/yowainwright/go-lint-legibility/actions/workflows/ci.yml)
+[![Go Reference](https://pkg.go.dev/badge/github.com/yowainwright/go-lint-legibility.svg)](https://pkg.go.dev/github.com/yowainwright/go-lint-legibility)
+[![GitHub release](https://img.shields.io/github/v/release/yowainwright/go-lint-legibility)](https://github.com/yowainwright/go-lint-legibility/releases)
+[![license](https://img.shields.io/github/license/yowainwright/go-lint-legibility)](LICENSE)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/yowainwright/go-lint-legibility/badge)](https://scorecard.dev/viewer/?uri=github.com/yowainwright/go-lint-legibility)
 
 Syntax-only readability and comment-policy rules for Go. The rules favor named values, shallow control flow, predictable filenames, and comments that match repository policy.
 
+go-lint-legibility is a small standalone binary. It also works as a [`golangci-lint` plugin](#golangci-lint-plugin).
+
 ## Install
 
-This project is a `golangci-lint` module plugin. Install it through Homebrew or build a custom `golangci-lint` binary.
+```sh
+brew install yowainwright/tap/go-lint-legibility
+go install github.com/yowainwright/go-lint-legibility/cmd/go-lint-legibility@latest
+```
 
-### Custom build
+Release binaries for macOS and Linux (arm64 and amd64) are attached to each [GitHub release](https://github.com/yowainwright/go-lint-legibility/releases).
+
+### Renamed from golangci-lint-legibility
+
+This project was `golangci-lint-legibility`. v0.3.1 is the last release under that name and keeps the old module path. From v0.4.0 the module is `github.com/yowainwright/go-lint-legibility`, which ships a standalone binary. The [`golangci-lint` plugin](#golangci-lint-plugin) is still supported.
+
+## Use
+
+Run it on a module:
+
+```sh
+go-lint-legibility ./...
+```
+
+Or through `go vet`:
+
+```sh
+go vet -vettool="$(which go-lint-legibility)" ./...
+```
+
+Exit codes: `0` for no diagnostics, `3` when diagnostics are reported, and `2` for a configuration error.
+
+## Configure
+
+Without a configuration file every default-on rule runs with its default settings. Configuration is optional and strict: an unknown rule, option, or severity is an error and exits `2`.
+
+go-lint-legibility reads one of these files, searching the current directory and then each parent. The nearest directory with a config wins, and more than one active config in a directory is an error.
+
+| File | Format |
+| --- | --- |
+| `.go-lint-legibilityrc` | JSON or YAML |
+| `.go-lint-legibilityrc.json`, `.yaml`, `.yml` | JSON or YAML |
+| `.go-lint-legibilityrc.toml` | TOML |
+| `.legibilityrc`, `.legibilityrc.json`, `.yaml`, `.yml` | JSON or YAML, under the `go-lint-legibility` key |
+| `.legibilityrc.toml` | TOML, under the `[go-lint-legibility]` table |
+
+A shared `.legibilityrc` without a `go-lint-legibility` key is ignored, so it can hold settings for other Legibility tools. Use `-config <file>` to select a file explicitly; a file named `.legibilityrc*` is read from its `go-lint-legibility` section.
+
+```json
+{
+  "version": 1,
+  "rules": {
+    "max-function-lines": ["error", { "max": 40 }],
+    "no-computed-values": ["error", { "max": 1 }],
+    "prefer-verb-function-names": "error",
+    "LEG042": "off"
+  }
+}
+```
+
+The same settings in a shared `.legibilityrc`:
+
+```yaml
+go-lint-legibility:
+  version: 1
+  rules:
+    max-function-lines: [error, { max: 40 }]
+```
+
+`version` must be `1`. Each entry in `rules` is keyed by rule name or `LEG###` code and is either a severity or `[severity, options]`.
+
+| Severity | Meaning |
+| --- | --- |
+| `"error"` | Run the rule. This also turns on an opt-in rule. |
+| `"off"` | Do not run the rule. |
+
+`"warn"` is reserved and not supported yet; it is rejected so a rule is never silently downgraded. Rules you do not list keep their defaults.
+
+| Rule | Option | Meaning |
+| --- | --- | --- |
+| `max-expression-operators` | `max` | Operators allowed in one expression |
+| `hoist-if-operators` | `max` | Boolean operators allowed in an `if` condition |
+| `max-control-flow-depth` | `max` | Nested control-flow depth |
+| `max-array-chain-depth` | `max` | Consecutive collection-style method chains |
+| `no-computed-values` | `max` | Operators in a returned value |
+| `prefer-object-lookup` | `min` | Equality-or chain length before a lookup is preferred |
+| `require-filename-matches-dirname` | `min` | Directory depth before the filename must match |
+| `no-deep-selector-chain` | `max` | Selector or index chain depth |
+| `prefer-switch-over-long-if-chain` | `min` | If-chain length before a switch is preferred |
+| `no-complex-if-init` | `max` | Operators in an `if` condition with an initializer |
+| `no-deep-composite-literal-arg` | `max` | Composite literal nesting in a call argument |
+| `max-function-lines` | `max` | Lines in a function |
+| `max-function-params` | `max` | Parameters in a signature |
+| `no-naked-returns` | `max` | Lines in a function that may use a naked return |
+| `no-unmatched-comments` | `matchers`, `prefixes`, `suffixes` | Comment policy |
+| `no-automated-comment-attribution` | `identifiers` | Automated signatures to reject in comments |
+| `prefer-positive-condition-names` | `pattern` | Pattern for negative condition names |
+
+### Suppress a diagnostic
+
+go-lint-legibility honors the `golangci-lint` comment syntax, so the same comments work with either way of running it:
+
+```go
+if ready && enabled { //nolint:LEG002 // reason
+}
+
+//nolint:legibility // every rule, with a reason
+func GetLoadMode() string {
+```
+
+A directive suppresses diagnostics on its own line, or on the line directly below it when it sits alone on a line. A blank line between the comment and the code ends the suppression. Selectors are `legibility` (every rule), a `LEG###` code, or a rule name, separated by commas. A bare `//nolint` suppresses every linter, as it does in `golangci-lint`. Unlike `golangci-lint`, a directive does not cover a whole block. For a wider exception, turn the rule off in the configuration file.
+
+## golangci-lint plugin
+
+The analyzers are also a `golangci-lint` module plugin. This path needs a custom `golangci-lint` build, which is much larger than the standalone binary, and it reads its settings from `.golangci.yml`, not the files above.
 
 <!-- consumer custom-gcl config derived from go.mod module path and plugin package path -->
 
@@ -25,9 +134,9 @@ version: v2.12.2
 name: legibility-golangci-lint
 destination: ./bin
 plugins:
-  - module: github.com/yowainwright/golangci-lint-legibility
-    import: github.com/yowainwright/golangci-lint-legibility/plugin
-    version: v0.3.0
+  - module: github.com/yowainwright/go-lint-legibility
+    import: github.com/yowainwright/go-lint-legibility/plugin
+    version: v0.4.0
 ```
 
 Install `golangci-lint`, then build the custom binary:
@@ -37,20 +146,18 @@ go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.2
 golangci-lint custom
 ```
 
-### Homebrew
-
-<!-- Homebrew tap commands derived from Formula/golangci-lint-legibility.rb -->
-
-```sh
-brew tap yowainwright/golangci-lint-legibility https://github.com/yowainwright/golangci-lint-legibility
-brew install golangci-lint-legibility
-```
-
 ### Agent skill
 
-<!-- agent workflow derived from skills/golangci-lint-legibility -->
+<!-- agent workflow derived from skills/go-lint-legibility -->
 
-Install the [companion Agent Skill](skills/golangci-lint-legibility) from this repository to configure the linter, resolve `LEG###` diagnostics, change analyzer rules, or measure performance. Invoke it as `$golangci-lint-legibility`.
+Install the [companion Agent Skill](skills/go-lint-legibility) from this repository to configure the linter, resolve `LEG###` diagnostics, change analyzer rules, or measure performance. Invoke it as `$go-lint-legibility`.
+
+## Known limits
+
+- `"warn"` severity is rejected; every diagnostic is an error.
+- `//nolint` covers its own line, or the line below when alone. It has no block scope.
+- In `go vet` mode, config is discovered from the working directory upward. Use an absolute `-config` path; a relative one is untested.
+- The `golangci-lint` plugin reads settings from `.golangci.yml`, not the config files above.
 
 ## Rules
 
@@ -673,7 +780,7 @@ linters:
       legibility:
         type: module
         description: Syntax-only Go legibility rules.
-        original-url: github.com/yowainwright/golangci-lint-legibility
+        original-url: github.com/yowainwright/go-lint-legibility
         settings:
           max-expression-operators: 4
           max-if-operators: 0
@@ -708,7 +815,7 @@ See the `golangci-lint` [module plugin docs](https://golangci-lint.run/docs/plug
 
 ## Recipes
 
-<!-- workflow recipes derived from consumer binary names, golangci-lint run flags, CI checkout behavior, comment policy settings, and skills/golangci-lint-legibility -->
+<!-- workflow recipes derived from consumer binary names, golangci-lint run flags, CI checkout behavior, comment policy settings, and skills/go-lint-legibility -->
 
 The examples use the locally built binary. Homebrew users can omit `./bin/`.
 
@@ -786,7 +893,7 @@ Write normal Go comments. No role label is needed.
 
 ### Agent workflow
 
-Use the [companion Agent Skill](skills/golangci-lint-legibility) for the complete consumer, contributor, and performance workflow.
+Use the [companion Agent Skill](skills/go-lint-legibility) for the complete consumer, contributor, and performance workflow.
 
 ```sh
 ./bin/legibility-golangci-lint run --new-from-rev=HEAD ./...
