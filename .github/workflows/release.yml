@@ -52,6 +52,9 @@ jobs:
       - name: Run custom linter
         run: make lint
 
+      - name: Run golangci-lint plugin
+        run: make lint-golangci
+
       - name: Fetch main
         run: git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
 
