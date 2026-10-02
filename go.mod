@@ -1,6 +1,6 @@
 module github.com/yowainwright/go-lint-legibility
 
-go 1.25.0
+go 1.27.1
 
 require (
 	github.com/BurntSushi/toml v1.6.0
