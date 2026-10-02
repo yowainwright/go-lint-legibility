@@ -1,10 +1,15 @@
 package suppress
 
 import (
+	"go/ast"
+	"go/parser"
+	"go/token"
+	"go/types"
 	"reflect"
 	"testing"
 
 	"github.com/yowainwright/go-lint-legibility/internal/analyzers"
+	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/analysistest"
 )
 
@@ -16,6 +21,31 @@ func TestSuppressionInSource(t *testing.T) {
 	}
 
 	analysistest.Run(t, analysistest.TestData(), wrapped[0], "a")
+}
+
+func TestDirectiveCacheReadsSourceOnce(t *testing.T) {
+	source := "package p\n\n//nolint\nfunc first() {}\n//nolint\nfunc second() {}\n"
+	fset := token.NewFileSet()
+	file, err := parser.ParseFile(fset, "source.go", source, parser.ParseComments)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reads := 0
+	pass := &analysis.Pass{
+		Pkg:   types.NewPackage("example.test/p", "p"),
+		Fset:  fset,
+		Files: []*ast.File{file},
+		ReadFile: func(string) ([]byte, error) {
+			reads++
+			return []byte(source), nil
+		},
+	}
+	cache := &directiveCache{byFiles: map[string]fileIndex{}}
+	cache.forPass(pass)
+	cache.forPass(pass)
+	if reads != 1 {
+		t.Fatalf("source reads = %d, want 1", reads)
+	}
 }
 
 type parseCase struct {

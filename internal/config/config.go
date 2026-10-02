@@ -40,6 +40,7 @@ type entry struct {
 
 type overlay struct {
 	values     map[string]any
+	selectors  map[string]string
 	disabled   []string
 	additional []string
 }
@@ -279,7 +280,10 @@ func strictDecode(body []byte, target any) error {
 }
 
 func build(rules map[string]json.RawMessage) (analyzers.Settings, error) {
-	merged := overlay{values: map[string]any{}}
+	merged := overlay{
+		values:    map[string]any{},
+		selectors: map[string]string{},
+	}
 	for _, selector := range slices.Sorted(maps.Keys(rules)) {
 		if err := merged.apply(selector, rules[selector]); err != nil {
 			return analyzers.Settings{}, fmt.Errorf("rule %s: %w", selector, err)
@@ -294,6 +298,10 @@ func (o *overlay) apply(selector string, raw json.RawMessage) error {
 	if !found {
 		return errors.New("unknown rule")
 	}
+	if previous, found := o.selectors[rule.Name]; found {
+		return fmt.Errorf("rule %s specified by both %q and %q", rule.Name, previous, selector)
+	}
+	o.selectors[rule.Name] = selector
 
 	parsed, err := parseEntry(raw)
 	if err != nil {

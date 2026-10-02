@@ -15,7 +15,6 @@ go-lint-legibility is a small standalone binary. It also works as a [`golangci-l
 ## Install
 
 ```sh
-brew install yowainwright/tap/go-lint-legibility
 go install github.com/yowainwright/go-lint-legibility/cmd/go-lint-legibility@latest
 ```
 
