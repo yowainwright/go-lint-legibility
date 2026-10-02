@@ -9,4 +9,4 @@ linters:
       legibility:
         type: module
         description: Syntax-only Go legibility rules.
-        original-url: github.com/yowainwright/golangci-lint-legibility
+        original-url: github.com/yowainwright/go-lint-legibility

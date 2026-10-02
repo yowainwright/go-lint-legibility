@@ -44,13 +44,16 @@ jobs:
         run: make test
 
       - name: Install golangci-lint
-        run: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.2
+        run: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0
 
       - name: Run end-to-end tests
         run: make e2e
 
       - name: Run custom linter
         run: make lint
+
+      - name: Run golangci-lint plugin
+        run: make lint-golangci
 
       - name: Fetch main
         run: git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main

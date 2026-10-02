@@ -1,7 +1,7 @@
-version: v2.12.2
+version: v2.14.0
 name: legibility-golangci-lint
 destination: ./bin
 plugins:
-  - module: github.com/yowainwright/golangci-lint-legibility
-    import: github.com/yowainwright/golangci-lint-legibility/plugin
+  - module: github.com/yowainwright/go-lint-legibility
+    import: github.com/yowainwright/go-lint-legibility/plugin
     path: .

@@ -1,6 +1,6 @@
 [tools]
-go = "1.25.0"
-golangci-lint = "2.12.2"
+go = "1.27.1"
+golangci-lint = "2.14.0"
 svu = "3.4.0"
 
 [tasks.check]
