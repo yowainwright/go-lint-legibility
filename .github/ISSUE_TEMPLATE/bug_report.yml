@@ -32,7 +32,7 @@ body:
     attributes:
       label: Versions
       description: Include Go, golangci-lint (if used), and go-lint-legibility versions.
-      placeholder: "go1.27.1, golangci-lint v2.12.2, go-lint-legibility v0.4.0"
+      placeholder: "go1.27.1, golangci-lint v2.14.0, go-lint-legibility v0.4.0"
     validations:
       required: true
   - type: textarea
