@@ -4,7 +4,9 @@ import (
 	"go/ast"
 	"go/token"
 	"os"
+	"slices"
 	"strings"
+	"sync"
 
 	"github.com/yowainwright/go-lint-legibility/internal/analyzers"
 	"golang.org/x/tools/go/analysis"
@@ -13,6 +15,11 @@ import (
 type lineSelectors map[int][]string
 
 type fileIndex map[string]lineSelectors
+
+type directiveCache struct {
+	mu      sync.Mutex
+	byFiles map[string]fileIndex
+}
 
 type runFunc func(*analysis.Pass) (any, error)
 
@@ -24,10 +31,11 @@ const (
 
 func Wrap(list []*analysis.Analyzer) []*analysis.Analyzer {
 	rules := rulesByAnalyzer()
+	cache := &directiveCache{byFiles: map[string]fileIndex{}}
 	wrapped := make([]*analysis.Analyzer, 0, len(list))
 	for _, original := range list {
 		clone := *original
-		clone.Run = filterRun(original.Run, rules[original.Name])
+		clone.Run = filterRun(original.Run, rules[original.Name], cache)
 		wrapped = append(wrapped, &clone)
 	}
 
@@ -43,9 +51,9 @@ func rulesByAnalyzer() map[string]analyzers.Rule {
 	return rules
 }
 
-func filterRun(run runFunc, rule analyzers.Rule) runFunc {
+func filterRun(run runFunc, rule analyzers.Rule, cache *directiveCache) runFunc {
 	return func(pass *analysis.Pass) (any, error) {
-		directives := collect(pass)
+		directives := cache.forPass(pass)
 		filtered := *pass
 		filtered.Report = func(diagnostic analysis.Diagnostic) {
 			position := pass.Fset.Position(diagnostic.Pos)
@@ -59,6 +67,29 @@ func filterRun(run runFunc, rule analyzers.Rule) runFunc {
 	}
 }
 
+func (cache *directiveCache) forPass(pass *analysis.Pass) fileIndex {
+	key := packageKey(pass)
+	cache.mu.Lock()
+	defer cache.mu.Unlock()
+	if directives, found := cache.byFiles[key]; found {
+		return directives
+	}
+
+	directives := collect(pass)
+	cache.byFiles[key] = directives
+	return directives
+}
+
+func packageKey(pass *analysis.Pass) string {
+	paths := []string{pass.Pkg.Path()}
+	for _, file := range pass.Files {
+		paths = append(paths, pass.Fset.Position(file.Pos()).Filename)
+	}
+	slices.Sort(paths[1:])
+
+	return strings.Join(paths, "\x00")
+}
+
 func collect(pass *analysis.Pass) fileIndex {
 	found := fileIndex{}
 	for _, file := range pass.Files {
@@ -69,11 +100,19 @@ func collect(pass *analysis.Pass) fileIndex {
 }
 
 func addFile(found fileIndex, pass *analysis.Pass, file *ast.File) {
+	var lines []string
+	loaded := false
 	for _, comment := range commentsIn(file) {
 		selectors, isDirective := parse(comment.Text)
-		if isDirective {
-			register(found, pass, comment, selectors)
+		if !isDirective {
+			continue
 		}
+		position := pass.Fset.Position(comment.Slash)
+		if !loaded {
+			lines = sourceLines(pass, position.Filename)
+			loaded = true
+		}
+		register(found, position, selectors, lines)
 	}
 }
 
@@ -113,31 +152,45 @@ func splitSelectors(rest string) []string {
 	return strings.Split(fields[0], ",")
 }
 
-func register(found fileIndex, pass *analysis.Pass, comment *ast.Comment, selectors []string) {
-	position := pass.Fset.Position(comment.Slash)
+func register(found fileIndex, position token.Position, selectors []string, source []string) {
 	if found[position.Filename] == nil {
 		found[position.Filename] = lineSelectors{}
 	}
 
 	lines := found[position.Filename]
 	lines[position.Line] = append(lines[position.Line], selectors...)
-	if isOwnLine(pass, position) {
+	if isOwnLine(source, position) {
 		lines[position.Line+1] = append(lines[position.Line+1], selectors...)
 	}
 }
 
-func isOwnLine(pass *analysis.Pass, position token.Position) bool {
-	source, err := readSource(pass, position.Filename)
+func sourceLines(pass *analysis.Pass, name string) []string {
+	source, err := readSource(pass, name)
 	if err != nil {
-		return false
+		return nil
 	}
 
-	lines := strings.Split(string(source), "\n")
+	return strings.Split(string(source), "\n")
+}
+
+func isOwnLine(lines []string, position token.Position) bool {
+	if position.Line < 1 {
+		return false
+	}
 	if position.Line > len(lines) {
 		return false
 	}
+	if position.Column < 1 {
+		return false
+	}
 
-	prefix := lines[position.Line-1][:position.Column-1]
+	line := lines[position.Line-1]
+	column := position.Column - 1
+	if column > len(line) {
+		return false
+	}
+	prefix := line[:column]
+
 	return strings.TrimSpace(prefix) == ""
 }
 

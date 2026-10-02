@@ -41,7 +41,11 @@ func main() {
 }
 
 func hasVersionFlag(args []string) bool {
-	return slices.ContainsFunc(args, isVersionFlag)
+	if len(args) != 1 {
+		return false
+	}
+
+	return isVersionFlag(args[0])
 }
 
 func isVersionFlag(arg string) bool {

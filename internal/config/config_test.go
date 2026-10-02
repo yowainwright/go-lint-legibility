@@ -235,6 +235,11 @@ type invalidConfigCase struct {
 var invalidConfigCases = []invalidConfigCase{
 	{"unknown rule", `{"version":1,"rules":{"no-such-rule":"error"}}`, "unknown rule"},
 	{
+		"rule aliases conflict",
+		`{"version":1,"rules":{"LEG052":"off","prefer-verb-function-names":"error"}}`,
+		"specified by both",
+	},
+	{
 		"unknown option",
 		`{"version":1,"rules":{"max-function-lines":["error",{"limit":3}]}}`,
 		"unknown option",
