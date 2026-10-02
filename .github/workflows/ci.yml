@@ -50,7 +50,7 @@ jobs:
         run: make test
 
       - name: Install golangci-lint
-        run: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.2
+        run: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0
 
       - name: Run end-to-end tests
         if: runner.os == 'Linux'
@@ -59,5 +59,8 @@ jobs:
       - name: Run custom linter
         run: make lint
 
+      - name: Run golangci-lint plugin
+        run: make lint-golangci
+
       - name: Vulnerability check
-        run: go install golang.org/x/vuln/cmd/govulncheck@v1.1.4 && govulncheck ./...
+        run: go install golang.org/x/vuln/cmd/govulncheck@v1.8.0 && govulncheck ./...
