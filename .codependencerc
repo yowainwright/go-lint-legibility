@@ -1,0 +1,24 @@
+{
+  "config": {
+    "go": {
+      "path": "go.mod",
+      "manager": "go"
+    },
+    "ci-workflow": {
+      "path": ".github/workflows/ci.yml",
+      "manager": "github-actions"
+    },
+    "release-workflow": {
+      "path": ".github/workflows/release.yml",
+      "manager": "github-actions"
+    },
+    "scorecard-workflow": {
+      "path": ".github/workflows/scorecard.yml",
+      "manager": "github-actions"
+    },
+    "codependence-workflow": {
+      "path": ".github/workflows/codependence.yml",
+      "manager": "github-actions"
+    }
+  }
+}

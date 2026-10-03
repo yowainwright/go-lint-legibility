@@ -1,0 +1,41 @@
+name: Update dependencies
+
+on:
+  schedule:
+    - cron: "0 9 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  update:
+    name: Update Go modules and GitHub Actions
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Install Codependence
+        run: brew install yowainwright/tap/codependence
+
+      - name: Update dependencies
+        run: ./scripts/update-dependencies.sh
+
+      - name: Create pull request
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
+        with:
+          token: ${{ secrets.CODEPENDENCE_TOKEN }}
+          branch: update-dependencies
+          delete-branch: true
+          title: "chore: update dependencies"
+          commit-message: "chore: update dependencies"
+          body: "Automated updates for Go modules and GitHub Actions."
