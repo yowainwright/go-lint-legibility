@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/rand"
 	"flag"
 	"fmt"
 	"os"
@@ -25,6 +26,7 @@ var (
 func main() {
 	flag.Bool("version", versionDefault, "print the version and exit")
 	flag.String("config", "", "path to a go-lint-legibility config file")
+	flag.Func("V", "print version and exit", printUncachedVetVersion)
 
 	if hasVersionFlag(os.Args[1:]) {
 		fmt.Println(version)
@@ -38,6 +40,16 @@ func main() {
 	}
 
 	multichecker.Main(suppress.Wrap(analyzers.New(settings))...)
+}
+
+func printUncachedVetVersion(value string) error {
+	if value != "full" {
+		return fmt.Errorf("unsupported flag value: -V=%s (use -V=full)", value)
+	}
+
+	fmt.Printf("go-lint-legibility version devel buildID=%s\n", rand.Text())
+	os.Exit(0)
+	return nil
 }
 
 func hasVersionFlag(args []string) bool {
