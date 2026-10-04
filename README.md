@@ -6,32 +6,28 @@
 [![license](https://img.shields.io/github/license/yowainwright/go-lint-legibility)](LICENSE)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/yowainwright/go-lint-legibility/badge)](https://scorecard.dev/viewer/?uri=github.com/yowainwright/go-lint-legibility)
 
-Legibility lint and comment-policy rules for Go. 
+Go lint rules for readable expressions, control flow, names, and comments.
 
-These rules favor named values, small readable functions, predictable filenames, and comments that match repository policy.
+Run it as a standalone command or as an optional `golangci-lint` module plugin.
 
-go-lint-legibility is a small standalone binary built to work with  [`golangci-lint` plugin](#golangci-lint-plugin) and other linting tools
-
-## Install
+## Quick start
 
 ```sh
 go install github.com/yowainwright/go-lint-legibility/cmd/go-lint-legibility@latest
 ```
 
-Release binaries for macOS and Linux (arm64 and amd64) are attached to each [GitHub release](https://github.com/yowainwright/go-lint-legibility/releases).
-
-> [!INFORMATION]
-> This project was `golangci-lint-legibility`. `v0.3.1` is the last release under that name and keeps the old module path. From v0.4.0 the module is `github.com/yowainwright/go-lint-legibility`, which ships a standalone binary. The [`golangci-lint` plugin](#golangci-lint-plugin) is still supported. The reason for this change is speed and size, The binary size when compile with golangci-lint was 50mb.å
-
-## Use
-
-Run it on a module:
+Make sure Go's install directory (`GOBIN`, or `GOPATH/bin` by default) is on `PATH`.
 
 ```sh
 go-lint-legibility ./...
 ```
 
-Or through `go vet`:
+Release binaries for macOS and Linux (arm64 and amd64) are attached to each [GitHub release](https://github.com/yowainwright/go-lint-legibility/releases).
+
+> [!NOTE]
+> `v0.3.1` was the final release under the name `golangci-lint-legibility`. Starting with `v0.4.0`, the module path is `github.com/yowainwright/go-lint-legibility`.
+
+To run it through `go vet` instead:
 
 ```sh
 go vet -vettool="$(which go-lint-legibility)" ./...
@@ -41,9 +37,7 @@ Exit codes: `0` for no diagnostics, `3` when diagnostics are reported, and `2` f
 
 ## Configure
 
-Without a configuration file every default-on rule runs with its default settings. Configuration is optional and strict: an unknown rule, option, or severity is an error and exits `2`.
-
-go-lint-legibility reads one of the files types below. it does this by searching the current directory and then each parent. The nearest directory with a config wins, and more than one active config in a directory results in an error.
+Configuration is optional; default-on rules use go-lint-legibility defaults. The linter searches the current directory and its parents, using the nearest config. Multiple supported config files in one directory or unknown settings are errors (exit `2`).
 
 | File | Format |
 | --- | --- |
@@ -86,25 +80,7 @@ go-lint-legibility:
 
 `"warn"` is reserved and not supported yet; it is rejected so a rule is never silently downgraded. Rules you do not list keep their defaults.
 
-| Rule | Option | Meaning |
-| --- | --- | --- |
-| `max-expression-operators` | `max` | Operators allowed in one expression |
-| `hoist-if-operators` | `max` | Boolean operators allowed in an `if` condition |
-| `max-control-flow-depth` | `max` | Nested control-flow depth |
-| `max-array-chain-depth` | `max` | Consecutive collection-style method chains |
-| `no-computed-values` | `max` | Operators in a returned value |
-| `prefer-object-lookup` | `min` | Equality-or chain length before a lookup is preferred |
-| `require-filename-matches-dirname` | `min` | Directory depth before the filename must match |
-| `no-deep-selector-chain` | `max` | Selector or index chain depth |
-| `prefer-switch-over-long-if-chain` | `min` | If-chain length before a switch is preferred |
-| `no-complex-if-init` | `max` | Operators in an `if` condition with an initializer |
-| `no-deep-composite-literal-arg` | `max` | Composite literal nesting in a call argument |
-| `max-function-lines` | `max` | Lines in a function |
-| `max-function-params` | `max` | Parameters in a signature |
-| `no-naked-returns` | `max` | Lines in a function that may use a naked return |
-| `no-unmatched-comments` | `matchers`, `prefixes`, `suffixes` | Comment policy |
-| `no-automated-comment-attribution` | `identifiers` | Automated signatures to reject in comments |
-| `prefer-positive-condition-names` | `pattern` | Pattern for negative condition names |
+See the [settings reference](#settings) for all rule options and defaults.
 
 ### Suppress a diagnostic
 
@@ -122,7 +98,7 @@ A directive suppresses diagnostics on its own line, or on the line directly belo
 
 ## golangci-lint plugin
 
-The analyzers are also a `golangci-lint` module plugin. This path needs a custom `golangci-lint` build, which is much larger than the standalone binary, and it reads its settings from `.golangci.yml`, not the files above.
+Use this path if your project already runs `golangci-lint`. It needs a custom `golangci-lint` build, which is larger than the standalone binary. Plugin settings go in `.golangci.yml`, not the standalone config files above.
 
 Create `.custom-gcl.yml` in the project that wants to use the linter:
 
@@ -143,9 +119,58 @@ go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0
 golangci-lint custom
 ```
 
-### Agent skill
+### Configure the plugin
 
-Install the [companion Agent Skill](skills/go-lint-legibility) from this repository to configure the linter, resolve `LEG###` diagnostics, change analyzer rules, or measure performance. Invoke it as `$go-lint-legibility`.
+Add `legibility` to `.golangci.yml`:
+
+```yaml
+version: "2"
+
+linters:
+  default: standard
+  enable:
+    - legibility
+  settings:
+    custom:
+      legibility:
+        type: module
+        description: Syntax-only Go legibility rules.
+        original-url: github.com/yowainwright/go-lint-legibility
+        settings:
+          max-expression-operators: 4
+          max-if-operators: 0
+          max-control-flow-depth: 3
+          max-array-chain-depth: 2
+          max-computed-value-operators: 1
+          min-object-lookup-chain-length: 3
+          max-selector-chain-depth: 3
+          min-switch-chain-length: 3
+          max-if-init-operators: 0
+          max-composite-literal-arg-depth: 1
+          max-function-lines: 20
+          max-function-params: 5
+          max-naked-return-lines: 5
+          # This example enables only these two opt-in rules.
+          enabled-rules:
+            - prefer-verb-function-names
+            - prefer-boolean-prefixes
+          disabled-rules:
+            - prefer-guard-clauses
+```
+
+Run it with the custom binary:
+
+```sh
+./bin/legibility-golangci-lint run ./...
+```
+
+See the `golangci-lint` [module plugin docs](https://golangci-lint.run/docs/plugins/module-plugins/) for details. The plugin and host binary must use the same Go toolchain version and build environment.
+
+## Agent skill
+
+The [Go Legibility skill](skills/go-lint-legibility/SKILL.md) can guide an agent through standalone or plugin setup, configuration, `LEG###` findings, analyzer changes, and performance measurements. Invoke it with `$go-lint-legibility`.
+
+The standalone command is the simplest setup. Use the plugin section above when the project already relies on `golangci-lint`.
 
 ## Known limits
 
@@ -515,8 +540,6 @@ With `max-function-lines: 6`:
 + }
 ```
 
-<!-- comment rule examples derived from tests/e2e/comments_test.go and tests/e2e/testdata/comments -->
-
 <a id="leg039-no-unmatched-comments"></a>
 
 ### `LEG039 no-unmatched-comments`
@@ -751,60 +774,9 @@ The naming guidance is informed by [Effective Go](https://go.dev/doc/effective_g
 This project implements the additional function and boolean heuristics as
 native `go/analysis` rules; no Revive source is copied.
 
-## Configure
-
-<!-- golangci-lint configuration derived from .golangci.yml and internal/analyzers/settings.go -->
-
-Add `legibility` to `.golangci.yml`:
-
-```yaml
-version: "2"
-
-linters:
-  default: standard
-  enable:
-    - legibility
-  settings:
-    custom:
-      legibility:
-        type: module
-        description: Syntax-only Go legibility rules.
-        original-url: github.com/yowainwright/go-lint-legibility
-        settings:
-          max-expression-operators: 4
-          max-if-operators: 0
-          max-control-flow-depth: 3
-          max-array-chain-depth: 2
-          max-computed-value-operators: 1
-          min-object-lookup-chain-length: 3
-          max-selector-chain-depth: 3
-          min-switch-chain-length: 3
-          max-if-init-operators: 0
-          max-composite-literal-arg-depth: 1
-          max-function-lines: 20
-          max-function-params: 5
-          max-naked-return-lines: 5
-          # enabled-rules is an exclusive replacement list; this example
-          # enables only the two opt-in naming rules.
-          enabled-rules:
-            - prefer-verb-function-names
-            - prefer-boolean-prefixes
-          disabled-rules:
-            - prefer-guard-clauses
-```
-
-Run:
-
-```sh
-./bin/legibility-golangci-lint run ./...
-./bin/legibility-golangci-lint fmt ./...
-```
-
-See the `golangci-lint` [module plugin docs](https://golangci-lint.run/docs/plugins/module-plugins/) for the custom binary workflow. Module plugins require a build step because the plugin and host binary must share the same Go toolchain version and build environment.
-
 ## Recipes
 
-The examples use the locally built binary. Homebrew users can omit `./bin/`.
+The examples use locally built binaries from `./bin/`.
 
 ### Comment rules
 
@@ -921,8 +893,6 @@ Inventory the complete baseline without output caps:
 
 ## Settings
 
-<!-- settings derived from internal/analyzers/settings.go -->
-
 | Setting | Default | Description |
 | --- | ---: | --- |
 | `enabled-rules` | all | Only run matching rule codes or names. |
@@ -949,17 +919,6 @@ Inventory the complete baseline without output caps:
 
 Rule selectors accept rule codes such as `LEG009`, rule names such as `prefer-early-return`, or `all`. `require-filename-matches-dirname` is opt-in because ordinary Go packages often contain files that should not mirror the directory name. `no-unmatched-comments` activates when an allow path is configured or when the rule is explicitly selected.
 
-## Develop
+## License
 
-<!-- development commands derived from Makefile, internal/analyzers/performance_test.go, and tests/e2e/Dockerfile -->
-
-```sh
-make tidy-check
-make test
-make vet
-make e2e
-make lint
-go test ./internal/analyzers -run '^$' -bench Benchmark -benchmem -count=10
-```
-
-`make e2e` requires Docker. It uses the [E2E image](tests/e2e/Dockerfile) to build the custom linter and run it against the fixture projects. `make lint` builds the custom binary locally and runs it against this repository.
+[MIT License](LICENSE)
