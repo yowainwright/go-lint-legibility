@@ -8,8 +8,11 @@ import (
 	"testing"
 )
 
-func TestVetReloadsConfig(t *testing.T) {
+func TestVetTool(t *testing.T) {
 	binary := buildVetTool(t)
+	t.Run("release version", func(t *testing.T) {
+		checkVetReleaseVersion(t, binary)
+	})
 	for _, mode := range []string{"discovered", "explicit", "nested"} {
 		t.Run(mode, func(t *testing.T) {
 			checkVetReloadsConfig(t, binary, mode)
@@ -20,11 +23,25 @@ func TestVetReloadsConfig(t *testing.T) {
 func buildVetTool(t *testing.T) string {
 	t.Helper()
 	binary := filepath.Join(t.TempDir(), "go-lint-legibility")
-	command := exec.Command("go", "build", "-o", binary, ".")
+	command := exec.Command("go", "build", "-ldflags=-X main.version=0.4.0", "-o", binary, ".")
 	if output, err := command.CombinedOutput(); err != nil {
 		t.Fatalf("build vet tool: %v\n%s", err, output)
 	}
 	return binary
+}
+
+func checkVetReleaseVersion(t *testing.T, binary string) {
+	t.Helper()
+	command := exec.Command(binary, "-V=full")
+	output, err := command.CombinedOutput()
+	if err != nil {
+		t.Fatalf("query vet version: %v\n%s", err, output)
+	}
+	expectedPrefix := "go-lint-legibility version 0.4.0 buildID="
+	hasReleaseVersion := strings.HasPrefix(string(output), expectedPrefix)
+	if !hasReleaseVersion {
+		t.Fatalf("vet version does not identify the release: %s", output)
+	}
 }
 
 func checkVetReloadsConfig(t *testing.T, binary string, mode string) {

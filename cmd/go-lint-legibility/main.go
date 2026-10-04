@@ -47,7 +47,7 @@ func printUncachedVetVersion(value string) error {
 		return fmt.Errorf("unsupported flag value: -V=%s (use -V=full)", value)
 	}
 
-	fmt.Printf("go-lint-legibility version devel buildID=%s\n", rand.Text())
+	fmt.Printf("go-lint-legibility version %s buildID=%s\n", version, rand.Text())
 	os.Exit(0)
 	return nil
 }
