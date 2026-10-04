@@ -1,4 +1,4 @@
 interface:
   display_name: "Go Legibility"
-  short_description: "Use the Go legibility linter"
-  default_prompt: "Use $go-lint-legibility to resolve the current finding."
+  short_description: "Set up and use the Go legibility linter"
+  default_prompt: "Use $go-lint-legibility to set up or configure the linter for this project."
