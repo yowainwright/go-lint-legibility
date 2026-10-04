@@ -84,17 +84,23 @@ See the [settings reference](#settings) for all rule options and defaults.
 
 ### Suppress a diagnostic
 
-go-lint-legibility honors the `golangci-lint` comment syntax, so the same comments work with either way of running it:
+Use `//nolint:legibility` to suppress every Legibility rule with either the standalone command or the `golangci-lint` plugin:
+
+```go
+if ready && enabled { //nolint:legibility // reason
+}
+```
+
+The standalone command also accepts individual `LEG###` codes and rule names:
 
 ```go
 if ready && enabled { //nolint:LEG002 // reason
 }
-
-//nolint:legibility // every rule, with a reason
-func GetLoadMode() string {
 ```
 
-A directive suppresses diagnostics on its own line, or on the line directly below it when it sits alone on a line. A blank line between the comment and the code ends the suppression. Selectors are `legibility` (every rule), a `LEG###` code, or a rule name, separated by commas. A bare `//nolint` suppresses every linter, as it does in `golangci-lint`. Unlike `golangci-lint`, a directive does not cover a whole block. For a wider exception, turn the rule off in the configuration file.
+These rule-specific selectors are not supported by the plugin; `golangci-lint` treats them as unknown linter names. To disable one rule through the plugin, use `disabled-rules` in `.golangci.yml`.
+
+In the standalone command, a directive suppresses diagnostics on its own line, or on the line directly below it when it sits alone on a line. A blank line between the comment and the code ends the suppression. Selectors are separated by commas. A bare `//nolint` suppresses every rule, as it suppresses every linter in `golangci-lint`. Unlike `golangci-lint`, standalone directives do not cover a whole block. For a wider exception, turn the rule off in the configuration file.
 
 ## golangci-lint plugin
 
@@ -177,6 +183,7 @@ The standalone command is the simplest setup. Use the plugin section above when 
 - `"warn"` severity is rejected; every diagnostic is an error.
 - `//nolint` covers its own line, or the line below when alone. It has no block scope.
 - In `go vet` mode, config is discovered from the working directory upward. Use an absolute `-config` path; a relative one is untested.
+- `go vet` reruns analysis on every invocation so config changes take effect. Go's compiled-package cache is still used.
 - The `golangci-lint` plugin reads settings from `.golangci.yml`, not the config files above.
 
 ## Rules
