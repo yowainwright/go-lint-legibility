@@ -64,24 +64,15 @@ func newNoComputedValues(settings Settings) ruleSpec {
 
 func checkExpressionContexts(pass *analysis.Pass, max int, mode operatorMode) {
 	seen := make(map[ast.Expr]bool)
+	counts := make(map[ast.Expr]int)
+	limit := expressionOperatorLimit(max, mode)
 	for _, file := range pass.Files {
 		ast.Inspect(file, func(node ast.Node) bool {
-			checkExpressionNode(pass, node, max, mode, seen)
+			for _, expression := range expressionContexts(node) {
+				checkCachedOperatorLimit(pass, expression, seen, counts, limit)
+			}
 			return true
 		})
-	}
-}
-
-func checkExpressionNode(
-	pass *analysis.Pass,
-	node ast.Node,
-	max int,
-	mode operatorMode,
-	seen map[ast.Expr]bool,
-) {
-	limit := expressionOperatorLimit(max, mode)
-	for _, expression := range expressionContexts(node) {
-		checkOperatorLimit(pass, expression, seen, limit)
 	}
 }
 
@@ -146,20 +137,27 @@ func ifOperatorLimit(max int) operatorLimit {
 
 func checkComputedValues(pass *analysis.Pass, max int) {
 	seen := make(map[ast.Expr]bool)
+	counts := make(map[ast.Expr]int)
 	for _, file := range pass.Files {
 		ast.Inspect(file, func(node ast.Node) bool {
-			checkComputedNode(pass, node, max, seen)
+			checkComputedNode(pass, node, max, seen, counts)
 			return true
 		})
 	}
 }
 
-func checkComputedNode(pass *analysis.Pass, node ast.Node, max int, seen map[ast.Expr]bool) {
+func checkComputedNode(
+	pass *analysis.Pass,
+	node ast.Node,
+	max int,
+	seen map[ast.Expr]bool,
+	counts map[ast.Expr]int,
+) {
 	switch typed := node.(type) {
 	case *ast.ReturnStmt:
-		checkComputedExpressions(pass, typed.Results, max, seen)
+		checkComputedExpressions(pass, typed.Results, max, seen, counts)
 	case *ast.CompositeLit:
-		checkCompositeValues(pass, typed.Elts, max, seen)
+		checkCompositeValues(pass, typed.Elts, max, seen, counts)
 	}
 }
 
@@ -168,10 +166,11 @@ func checkCompositeValues(
 	expressions []ast.Expr,
 	max int,
 	seen map[ast.Expr]bool,
+	counts map[ast.Expr]int,
 ) {
 	for _, expression := range expressions {
 		value := compositeValue(expression)
-		checkComputedExpression(pass, value, max, seen)
+		checkComputedExpression(pass, value, max, seen, counts)
 	}
 }
 
@@ -180,9 +179,10 @@ func checkComputedExpressions(
 	expressions []ast.Expr,
 	max int,
 	seen map[ast.Expr]bool,
+	counts map[ast.Expr]int,
 ) {
 	for _, expression := range expressions {
-		checkComputedExpression(pass, expression, max, seen)
+		checkComputedExpression(pass, expression, max, seen, counts)
 	}
 }
 
@@ -191,9 +191,10 @@ func checkComputedExpression(
 	expression ast.Expr,
 	max int,
 	seen map[ast.Expr]bool,
+	counts map[ast.Expr]int,
 ) {
 	limit := computedOperatorLimit(max)
-	checkOperatorLimit(pass, expression, seen, limit)
+	checkCachedOperatorLimit(pass, expression, seen, counts, limit)
 }
 
 func computedOperatorLimit(max int) operatorLimit {
@@ -226,7 +227,27 @@ func checkOperatorLimit(
 	}
 
 	seen[expression] = true
-	if !exceedsOperatorLimit(expression, limit) {
+	reportOperatorLimit(pass, expression, countOperators(expression, limit.mode), limit)
+}
+
+func checkCachedOperatorLimit(
+	pass *analysis.Pass,
+	expression ast.Expr,
+	seen map[ast.Expr]bool,
+	counts map[ast.Expr]int,
+	limit operatorLimit,
+) {
+	if expressionAlreadyChecked(expression, seen) {
+		return
+	}
+
+	seen[expression] = true
+	count := countOperatorsWithCache(expression, limit.mode, counts)
+	reportOperatorLimit(pass, expression, count, limit)
+}
+
+func reportOperatorLimit(pass *analysis.Pass, expression ast.Expr, count int, limit operatorLimit) {
+	if count <= limit.max {
 		return
 	}
 
@@ -241,23 +262,129 @@ func expressionAlreadyChecked(expression ast.Expr, seen map[ast.Expr]bool) bool 
 	return seen[expression]
 }
 
-func exceedsOperatorLimit(expression ast.Expr, limit operatorLimit) bool {
-	count := countOperators(expression, limit.mode)
-	return count > limit.max
-}
-
 func countOperators(expression ast.Expr, mode operatorMode) int {
 	count := 0
 	ast.Inspect(expression, func(node ast.Node) bool {
-		if _, ok := node.(*ast.FuncLit); ok {
+		if _, isFunctionLiteral := node.(*ast.FuncLit); isFunctionLiteral {
 			return false
 		}
 
 		count += operatorWeight(node, mode)
 		return true
 	})
-
 	return count
+}
+
+func countOperatorsWithCache(
+	expression ast.Expr,
+	mode operatorMode,
+	counts map[ast.Expr]int,
+) int {
+	if count, found := counts[expression]; found {
+		return count
+	}
+	if _, isFunctionLiteral := expression.(*ast.FuncLit); isFunctionLiteral {
+		counts[expression] = 0
+		return 0
+	}
+
+	var stack []operatorCountFrame
+	ast.Inspect(expression, func(node ast.Node) bool {
+		return accumulateOperatorCount(node, mode, &stack, counts)
+	})
+
+	return counts[expression]
+}
+
+type operatorCountFrame struct {
+	node  ast.Node
+	count int
+}
+
+func accumulateOperatorCount(
+	node ast.Node,
+	mode operatorMode,
+	stack *[]operatorCountFrame,
+	counts map[ast.Expr]int,
+) bool {
+	if node == nil {
+		finishOperatorCount(stack, counts)
+		return true
+	}
+
+	if shouldSkipOperatorCountNode(node, stack, counts) {
+		return false
+	}
+
+	pushOperatorCountFrame(node, mode, stack)
+	return true
+}
+
+func pushOperatorCountFrame(node ast.Node, mode operatorMode, stack *[]operatorCountFrame) {
+	*stack = append(*stack, operatorCountFrame{
+		node:  node,
+		count: operatorWeight(node, mode),
+	})
+}
+
+func shouldSkipOperatorCountNode(
+	node ast.Node,
+	stack *[]operatorCountFrame,
+	counts map[ast.Expr]int,
+) bool {
+	if addCachedOperatorCount(node, stack, counts) {
+		return true
+	}
+
+	return cacheFunctionLiteralCount(node, counts)
+}
+
+func addCachedOperatorCount(
+	node ast.Node,
+	stack *[]operatorCountFrame,
+	counts map[ast.Expr]int,
+) bool {
+	expression, ok := node.(ast.Expr)
+	if !ok {
+		return false
+	}
+
+	count, found := counts[expression]
+	if !found {
+		return false
+	}
+	addOperatorCount(stack, count)
+	return true
+}
+
+func cacheFunctionLiteralCount(node ast.Node, counts map[ast.Expr]int) bool {
+	functionLiteral, ok := node.(*ast.FuncLit)
+	if !ok {
+		return false
+	}
+
+	counts[functionLiteral] = 0
+	return true
+}
+
+func finishOperatorCount(stack *[]operatorCountFrame, counts map[ast.Expr]int) {
+	index := len(*stack) - 1
+	frame := (*stack)[index]
+	*stack = (*stack)[:index]
+
+	if expression, ok := frame.node.(ast.Expr); ok {
+		counts[expression] = frame.count
+	}
+	addOperatorCount(stack, frame.count)
+}
+
+func addOperatorCount(stack *[]operatorCountFrame, count int) {
+	if len(*stack) == 0 {
+		return
+	}
+
+	index := len(*stack) - 1
+	(*stack)[index].count += count
 }
 
 func operatorWeight(node ast.Node, mode operatorMode) int {

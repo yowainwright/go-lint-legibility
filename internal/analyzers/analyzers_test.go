@@ -20,6 +20,24 @@ func TestMaxExpressionOperatorsReportsComplexExpression(t *testing.T) {
 	requireDiagnostic(t, diagnostics, "LEG001 max-expression-operators")
 }
 
+func TestMaxExpressionOperatorsPreservesNestedAndClosureCounts(t *testing.T) {
+	max := 1
+	settings := Settings{MaxExpressionOperators: &max}
+	source := readTestSource(t, "max_expression_operators_nested.go")
+	analyzer := analyzerByRuleWithSettings(t, "max-expression-operators", settings)
+	diagnostics := runAnalyzer(t, analyzer, "p.go", source)
+	requireDiagnosticsCount(t, diagnostics, 3)
+}
+
+func TestNoComputedValuesPreservesNestedAndClosureCounts(t *testing.T) {
+	max := 1
+	settings := Settings{MaxComputedValueOperators: &max}
+	source := readTestSource(t, "no_computed_values_nested.go")
+	analyzer := analyzerByRuleWithSettings(t, "no-computed-values", settings)
+	diagnostics := runAnalyzer(t, analyzer, "p.go", source)
+	requireDiagnosticsCount(t, diagnostics, 3)
+}
+
 func TestPreferEarlyReturnReportsElseAfterReturn(t *testing.T) {
 	source := readTestSource(t, "prefer_early_return.go")
 

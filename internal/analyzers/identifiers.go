@@ -5,6 +5,7 @@ import (
 	"go/token"
 	"strings"
 	"unicode"
+	"unicode/utf8"
 
 	"golang.org/x/tools/go/analysis"
 )
@@ -242,7 +243,8 @@ func startsUppercase(text string) bool {
 		return false
 	}
 
-	return unicode.IsUpper([]rune(text)[0])
+	character, _ := utf8.DecodeRuneInString(text)
+	return unicode.IsUpper(character)
 }
 
 func inspectDeclaredNames(file *ast.File, visit func(*ast.Ident)) {
@@ -312,21 +314,34 @@ func appendIdentifier(identifiers []*ast.Ident, expression ast.Expr) []*ast.Iden
 }
 
 type declarationScan struct {
-	function ast.Node
-	name     string
-	before   token.Pos
-	count    int
+	function   ast.Node
+	name       string
+	otherName  string
+	before     token.Pos
+	count      int
+	otherCount int
 }
 
 func declarationCountBefore(function ast.Node, name string, before token.Pos) int {
+	count, _ := declarationCountsBefore(function, name, "", before)
+	return count
+}
+
+func declarationCountsBefore(
+	function ast.Node,
+	name string,
+	otherName string,
+	before token.Pos,
+) (int, int) {
 	scan := declarationScan{
-		function: function,
-		name:     name,
-		before:   before,
+		function:  function,
+		name:      name,
+		otherName: otherName,
+		before:    before,
 	}
 	ast.Inspect(function, scan.inspect)
 
-	return scan.count
+	return scan.count, scan.otherCount
 }
 
 func (scan *declarationScan) inspect(node ast.Node) bool {
@@ -341,9 +356,20 @@ func (scan *declarationScan) inspect(node ast.Node) bool {
 	}
 
 	if declarationVisibleAt(node, scan.before) {
-		scan.count += declaredIdentifierCount(node, scan.name)
+		scan.addDeclaredNames(node)
 	}
 	return true
+}
+
+func (scan *declarationScan) addDeclaredNames(node ast.Node) {
+	for _, identifier := range declaredIdentifiers(node) {
+		if identifier.Name == scan.name {
+			scan.count++
+		}
+		if identifier.Name == scan.otherName {
+			scan.otherCount++
+		}
+	}
 }
 
 func isNestedFunctionNode(node ast.Node, function ast.Node) bool {
@@ -371,17 +397,6 @@ func declarationVisibleAt(node ast.Node, position token.Pos) bool {
 	default:
 		return node.Pos() < position
 	}
-}
-
-func declaredIdentifierCount(node ast.Node, name string) int {
-	count := 0
-	for _, identifier := range declaredIdentifiers(node) {
-		if identifier.Name == name {
-			count++
-		}
-	}
-
-	return count
 }
 
 func fieldCount(fields *ast.FieldList) int {
