@@ -68,17 +68,25 @@ func rangeCollectionIsStable(function ast.Node, stmt *ast.ForStmt, collection st
 		return false
 	}
 
-	collectionDeclarations := declarationCountBefore(function, collection, stmt.Pos())
-	if collectionDeclarations != 1 {
-		return false
-	}
-
-	lenDeclarations := declarationCountBefore(function, "len", stmt.Pos())
-	if lenDeclarations != 0 {
+	if !hasStableRangeDeclarations(function, collection, stmt.Pos()) {
 		return false
 	}
 
 	return !loopChangesCollection(stmt.Body, collection)
+}
+
+func hasStableRangeDeclarations(function ast.Node, collection string, before token.Pos) bool {
+	collectionDeclarations, lenDeclarations := declarationCountsBefore(
+		function,
+		collection,
+		"len",
+		before,
+	)
+	if collectionDeclarations != 1 {
+		return false
+	}
+
+	return lenDeclarations == 0
 }
 
 func indexLoopCollectionName(stmt *ast.ForStmt) (string, bool) {
