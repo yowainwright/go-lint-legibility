@@ -6,26 +6,32 @@
 [![license](https://img.shields.io/github/license/yowainwright/go-lint-legibility)](LICENSE)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/yowainwright/go-lint-legibility/badge)](https://scorecard.dev/viewer/?uri=github.com/yowainwright/go-lint-legibility)
 
-Go lint rules for readable expressions, control flow, names, and comments.
+Lint rules for improved legiblity in Go. **go-lint-legiblity** provides rules favoring readable expressions, control flow, names, and comment control with a goal of enabling the ability to read more code easier, faster, and, hopefully, with more joy.
 
-Run it as a standalone command or as an optional `golangci-lint` module plugin.
+Run **go-lint-legiblity** as a standalone command or as an optional `golangci-lint` module plugin.
 
 ## Quick start
 
+1. Install
 ```sh
 go install github.com/yowainwright/go-lint-legibility/cmd/go-lint-legibility@latest
 ```
 
-Make sure Go's install directory (`GOBIN`, or `GOPATH/bin` by default) is on `PATH`.
-
+2. Execute
 ```sh
 go-lint-legibility ./...
 ```
 
-Release binaries for macOS and Linux (arm64 and amd64) are attached to each [GitHub release](https://github.com/yowainwright/go-lint-legibility/releases).
+**go-lint-legiblity** will run with defaults so that's pretty much it. 
+However, there are more plugin that work for you if you choose to have you or your agent read-on!
 
-> [!NOTE]
+### Quick start notes
+
+> Make sure Go's install directory (`GOBIN`, or `GOPATH/bin` by default) is on `PATH`.
+> Release binaries for macOS and Linux (arm64 and amd64) are attached to each [GitHub release](https://github.com/yowainwright/go-lint-legibility/releases).
 > `v0.3.1` was the final release under the name `golangci-lint-legibility`. Starting with `v0.4.0`, the module path is `github.com/yowainwright/go-lint-legibility`.
+
+---
 
 To run it through `go vet` instead:
 
@@ -35,9 +41,13 @@ go vet -vettool="$(which go-lint-legibility)" ./...
 
 Exit codes: `0` for no diagnostics, `3` when diagnostics are reported, and `2` for a configuration error.
 
+---
+
 ## Configure
 
 Configuration is optional; default-on rules use go-lint-legibility defaults. The linter searches the current directory and its parents, using the nearest config. Multiple supported config files in one directory or unknown settings are errors (exit `2`).
+
+Rules marked **Opt-in** in the rules reference don't run by default. Set their severity to `error` to enable them.
 
 | File | Format |
 | --- | --- |
@@ -91,16 +101,29 @@ if ready && enabled { //nolint:legibility // reason
 }
 ```
 
-The standalone command also accepts individual `LEG###` codes and rule names:
+**Standalone source**
 
-```go
-if ready && enabled { //nolint:LEG002 // reason
-}
+```diff
+- if ready && enabled { //nolint:legibility // reason
++ if ready && enabled { //nolint:LEG002 // reason
+  }
 ```
 
-These rule-specific selectors are not supported by the plugin; `golangci-lint` treats them as unknown linter names. To disable one rule through the plugin, use `disabled-rules` in `.golangci.yml`.
+**Plugin config (`.golangci.yml`)**
 
-In the standalone command, a directive suppresses diagnostics on its own line, or on the line directly below it when it sits alone on a line. A blank line between the comment and the code ends the suppression. Selectors are separated by commas. A bare `//nolint` suppresses every rule, as it suppresses every linter in `golangci-lint`. Unlike `golangci-lint`, standalone directives do not cover a whole block. For a wider exception, turn the rule off in the configuration file.
+```diff
+ linters:
+   settings:
+     custom:
+       legibility:
+         settings:
++          disabled-rules:
++            - LEG002
+```
+
+Standalone accepts comma-separated rule names or `LEG###` codes; the plugin treats these comment selectors as unknown linter names, so use `disabled-rules` to disable individual rules. Standalone directives cover their own line or the next line when alone (blank lines end suppression; directives do not cover blocks); bare `//nolint` suppresses all standalone rules or all `golangci-lint` linters.
+
+---
 
 ## golangci-lint plugin
 
@@ -115,7 +138,7 @@ destination: ./bin
 plugins:
   - module: github.com/yowainwright/go-lint-legibility
     import: github.com/yowainwright/go-lint-legibility/plugin
-    version: v0.4.0
+    version: v0.4.1
 ```
 
 Install `golangci-lint`, then build the custom binary:
@@ -172,11 +195,15 @@ Run it with the custom binary:
 
 See the `golangci-lint` [module plugin docs](https://golangci-lint.run/docs/plugins/module-plugins/) for details. The plugin and host binary must use the same Go toolchain version and build environment.
 
+---
+
 ## Agent skill
 
 The [Go Legibility skill](skills/go-lint-legibility/SKILL.md) can guide an agent through standalone or plugin setup, configuration, `LEG###` findings, analyzer changes, and performance measurements. Invoke it with `$go-lint-legibility`.
 
 The standalone command is the simplest setup. Use the plugin section above when the project already relies on `golangci-lint`.
+
+---
 
 ## Known limits
 
@@ -185,6 +212,8 @@ The standalone command is the simplest setup. Use the plugin section above when 
 - In `go vet` mode, config is discovered from the working directory upward. Use an absolute `-config` path; a relative one is untested.
 - `go vet` reruns analysis on every invocation so config changes take effect. Go's compiled-package cache is still used.
 - The `golangci-lint` plugin reads settings from `.golangci.yml`, not the config files above.
+
+---
 
 ## Rules
 
@@ -894,9 +923,13 @@ Inventory the complete baseline without output caps:
   ./...
 ```
 
+---
+
 ## Troubleshooting
 
 **Build step fails or binary crashes at runtime** — the plugin and `golangci-lint` must be built with the same Go toolchain. Run `go version` and confirm your toolchain matches the version in `go.mod`.
+
+---
 
 ## Settings
 
@@ -925,6 +958,8 @@ Inventory the complete baseline without output caps:
 | `negative-condition-name-pattern` | built in | Regular expression for negative boolean names. |
 
 Rule selectors accept rule codes such as `LEG009`, rule names such as `prefer-early-return`, or `all`. `require-filename-matches-dirname` is opt-in because ordinary Go packages often contain files that should not mirror the directory name. `no-unmatched-comments` activates when an allow path is configured or when the rule is explicitly selected.
+
+---
 
 ## License
 
