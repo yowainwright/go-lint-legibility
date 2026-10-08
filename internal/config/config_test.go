@@ -32,6 +32,58 @@ func TestLoadStandaloneJSON(t *testing.T) {
 	}
 }
 
+func TestConfigAtMaximumSizeLoads(t *testing.T) {
+	dir := t.TempDir()
+	body := paddedConfig(maxConfigBytes)
+	if len(body) != maxConfigBytes {
+		t.Fatalf("config size = %d, want %d", len(body), maxConfigBytes)
+	}
+	writeFile(t, dir, ".go-lint-legibilityrc", body)
+
+	if _, _, err := Load("", dir); err != nil {
+		t.Fatalf("Load rejected a config at the size limit: %v", err)
+	}
+}
+
+func TestConfigOneByteOverMaximumFails(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, dir, ".go-lint-legibilityrc", paddedConfig(maxConfigBytes+1))
+	_, _, err := Load("", dir)
+	if !errorMentions(err, "exceeds") {
+		t.Fatalf("error = %v, want config size error", err)
+	}
+}
+
+func TestDirectoryConfigIsRejected(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, ".go-lint-legibilityrc")
+	if err := os.Mkdir(path, 0o700); err != nil {
+		t.Fatal(err)
+	}
+
+	_, _, err := Load("", dir)
+	if !errorMentions(err, "not a regular file") {
+		t.Fatalf("error = %v, want non-regular file error", err)
+	}
+}
+
+func TestSymlinkToRegularConfigLoads(t *testing.T) {
+	dir := t.TempDir()
+	target := writeFile(t, dir, "target.json", `{"version":1,"rules":{}}`)
+	link := filepath.Join(dir, ".go-lint-legibilityrc")
+	if err := os.Symlink(target, link); err != nil {
+		t.Skipf("cannot create symlink: %v", err)
+	}
+
+	_, source, err := Load("", dir)
+	if err != nil {
+		t.Fatalf("Load rejected a symlink to a regular config: %v", err)
+	}
+	if source.Path != link {
+		t.Fatalf("source = %q, want symlink path %q", source.Path, link)
+	}
+}
+
 func TestLoadStandaloneYAML(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(
@@ -349,4 +401,11 @@ func pointerValue(value *int) int {
 	}
 
 	return *value
+}
+
+func paddedConfig(size int) string {
+	body := `{"version":1,"rules":{}}`
+	paddingLength := size - len(body)
+	padding := strings.Repeat(" ", paddingLength)
+	return body + padding
 }
