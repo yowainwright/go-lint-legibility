@@ -3,12 +3,17 @@ package analyzers
 import (
 	"go/ast"
 	"go/token"
+	"sort"
 	"strings"
 	"unicode"
 	"unicode/utf8"
 
 	"golang.org/x/tools/go/analysis"
 )
+
+type declarationIndexCache map[ast.Node]declarationIndex
+
+type declarationIndex map[string][]token.Pos
 
 var goInitialisms = map[string]bool{
 	"ACL":   true,
@@ -313,62 +318,76 @@ func appendIdentifier(identifiers []*ast.Ident, expression ast.Expr) []*ast.Iden
 	return append(identifiers, identifier)
 }
 
-type declarationScan struct {
-	function   ast.Node
-	name       string
-	otherName  string
-	before     token.Pos
-	count      int
-	otherCount int
-}
-
-func declarationCountBefore(function ast.Node, name string, before token.Pos) int {
-	count, _ := declarationCountsBefore(function, name, "", before)
-	return count
-}
-
-func declarationCountsBefore(
+func (cache declarationIndexCache) countsBefore(
 	function ast.Node,
 	name string,
 	otherName string,
 	before token.Pos,
 ) (int, int) {
-	scan := declarationScan{
-		function:  function,
-		name:      name,
-		otherName: otherName,
-		before:    before,
-	}
-	ast.Inspect(function, scan.inspect)
-
-	return scan.count, scan.otherCount
+	index := cache.forFunction(function)
+	return index.countBefore(name, before), index.countBefore(otherName, before)
 }
 
-func (scan *declarationScan) inspect(node ast.Node) bool {
-	if node == nil {
-		return false
-	}
-	if isNestedFunctionNode(node, scan.function) {
-		return false
-	}
-	if nodeStartsAfterBoundary(node, scan.function, scan.before) {
-		return false
-	}
-
-	if declarationVisibleAt(node, scan.before) {
-		scan.addDeclaredNames(node)
-	}
-	return true
+func (cache declarationIndexCache) countBefore(
+	function ast.Node,
+	name string,
+	before token.Pos,
+) int {
+	return cache.forFunction(function).countBefore(name, before)
 }
 
-func (scan *declarationScan) addDeclaredNames(node ast.Node) {
-	for _, identifier := range declaredIdentifiers(node) {
-		if identifier.Name == scan.name {
-			scan.count++
+func (cache declarationIndexCache) forFunction(function ast.Node) declarationIndex {
+	if function == nil {
+		return nil
+	}
+	if index, found := cache[function]; found {
+		return index
+	}
+
+	index := indexDeclarations(function)
+	cache[function] = index
+	return index
+}
+
+func indexDeclarations(function ast.Node) declarationIndex {
+	index := make(declarationIndex)
+	ast.Inspect(function, func(node ast.Node) bool {
+		skipNode := node == nil || isNestedFunctionNode(node, function)
+		if skipNode {
+			return false
 		}
-		if identifier.Name == scan.otherName {
-			scan.otherCount++
+
+		position := declarationPosition(node)
+		for _, identifier := range declaredIdentifiers(node) {
+			index[identifier.Name] = append(index[identifier.Name], position)
 		}
+		return true
+	})
+
+	for _, positions := range index {
+		sort.Slice(positions, func(left int, right int) bool {
+			return positions[left] < positions[right]
+		})
+	}
+
+	return index
+}
+
+func (index declarationIndex) countBefore(name string, before token.Pos) int {
+	positions := index[name]
+	return sort.Search(len(positions), func(position int) bool {
+		return positions[position] >= before
+	})
+}
+
+func declarationPosition(node ast.Node) token.Pos {
+	switch typed := node.(type) {
+	case *ast.RangeStmt:
+		return typed.Body.Lbrace
+	case *ast.AssignStmt, *ast.ValueSpec, *ast.Field:
+		return node.End()
+	default:
+		return node.Pos()
 	}
 }
 
@@ -378,25 +397,6 @@ func isNestedFunctionNode(node ast.Node, function ast.Node) bool {
 	}
 
 	return functionBody(node) != nil
-}
-
-func nodeStartsAfterBoundary(node ast.Node, function ast.Node, boundary token.Pos) bool {
-	if node == function {
-		return false
-	}
-
-	return node.Pos() >= boundary
-}
-
-func declarationVisibleAt(node ast.Node, position token.Pos) bool {
-	switch typed := node.(type) {
-	case *ast.RangeStmt:
-		return typed.Body.Lbrace < position
-	case *ast.AssignStmt, *ast.ValueSpec, *ast.Field:
-		return node.End() < position
-	default:
-		return node.Pos() < position
-	}
 }
 
 func fieldCount(fields *ast.FieldList) int {

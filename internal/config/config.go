@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"maps"
 	"os"
 	"path/filepath"
@@ -46,8 +47,9 @@ type overlay struct {
 }
 
 const (
-	sharedKey     = "go-lint-legibility"
-	formatVersion = 1
+	sharedKey      = "go-lint-legibility"
+	formatVersion  = 1
+	maxConfigBytes = 1 << 20
 )
 
 //go:embed options.json
@@ -153,7 +155,7 @@ func candidates() []candidate {
 }
 
 func isActive(source Source) (bool, error) {
-	data, err := os.ReadFile(source.Path)
+	data, err := readConfigFile(source.Path)
 	if errors.Is(err, os.ErrNotExist) {
 		return false, nil
 	}
@@ -182,7 +184,7 @@ func describe(sources []Source) string {
 }
 
 func read(source Source) (analyzers.Settings, error) {
-	data, err := os.ReadFile(source.Path)
+	data, err := readConfigFile(source.Path)
 	if err != nil {
 		return analyzers.Settings{}, fmt.Errorf("read %s: %w", source.Path, err)
 	}
@@ -198,6 +200,71 @@ func read(source Source) (analyzers.Settings, error) {
 	}
 
 	return settings, nil
+}
+
+func readConfigFile(path string) ([]byte, error) {
+	file, err := openConfigFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	data, err := io.ReadAll(io.LimitReader(file, maxConfigBytes+1))
+	closeErr := file.Close()
+	readFailed := err != nil || closeErr != nil
+	if readFailed {
+		return nil, errors.Join(err, closeErr)
+	}
+	if len(data) > maxConfigBytes {
+		return nil, fmt.Errorf("config %s exceeds %d bytes", path, maxConfigBytes)
+	}
+
+	return data, nil
+}
+
+func openConfigFile(path string) (*os.File, error) {
+	if err := validateConfigPath(path); err != nil {
+		return nil, err
+	}
+
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := validateOpenedConfigFile(path, file); err != nil {
+		return nil, errors.Join(err, file.Close())
+	}
+
+	return file, nil
+}
+
+func validateConfigPath(path string) error {
+	info, err := os.Stat(path)
+	if err != nil {
+		return err
+	}
+
+	return validateConfigFile(path, info)
+}
+
+func validateOpenedConfigFile(path string, file *os.File) error {
+	info, err := file.Stat()
+	if err != nil {
+		return err
+	}
+
+	return validateConfigFile(path, info)
+}
+
+func validateConfigFile(path string, info os.FileInfo) error {
+	if !info.Mode().IsRegular() {
+		return fmt.Errorf("config %s is not a regular file", path)
+	}
+	if info.Size() > maxConfigBytes {
+		return fmt.Errorf("config %s exceeds %d bytes", path, maxConfigBytes)
+	}
+
+	return nil
 }
 
 func body(path string, data []byte, shared bool) ([]byte, error) {
