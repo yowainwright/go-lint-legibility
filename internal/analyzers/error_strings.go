@@ -26,6 +26,7 @@ func newPreferLowercaseErrorStrings() ruleSpec {
 
 func checkErrorStrings(pass *analysis.Pass) {
 	constructorsByFile := make(map[*ast.File]map[string]bool, len(pass.Files))
+	declarationsByFunction := make(declarationIndexCache)
 	for _, file := range pass.Files {
 		constructorsByFile[file] = errorStringConstructorNames(file)
 	}
@@ -34,7 +35,13 @@ func checkErrorStrings(pass *analysis.Pass) {
 	inspectCursors(pass, callTypes, func(cursor syntaxCursor) {
 		call := cursor.Node().(*ast.CallExpr)
 		constructors := constructorsByFile[enclosingFile(cursor)]
-		checkErrorStringCall(pass, call, constructors, enclosingFunction(cursor))
+		checkErrorStringCall(
+			pass,
+			call,
+			constructors,
+			enclosingFunction(cursor),
+			declarationsByFunction,
+		)
 	})
 }
 
@@ -43,8 +50,9 @@ func checkErrorStringCall(
 	call *ast.CallExpr,
 	constructors map[string]bool,
 	function ast.Node,
+	declarations declarationIndexCache,
 ) {
-	literal, ok := errorStringLiteral(call, constructors, function)
+	literal, ok := errorStringLiteral(call, constructors, function, declarations)
 	if !ok {
 		return
 	}
@@ -80,11 +88,16 @@ func errorStringLiteral(
 	call *ast.CallExpr,
 	constructors map[string]bool,
 	function ast.Node,
+	declarations declarationIndexCache,
 ) (*ast.BasicLit, bool) {
-	if !isErrorStringConstructor(call, constructors, function) {
+	if !isErrorStringConstructor(call, constructors, function, declarations) {
 		return nil, false
 	}
 
+	return firstStringLiteral(call)
+}
+
+func firstStringLiteral(call *ast.CallExpr) (*ast.BasicLit, bool) {
 	if len(call.Args) == 0 {
 		return nil, false
 	}
@@ -101,6 +114,7 @@ func isErrorStringConstructor(
 	call *ast.CallExpr,
 	constructors map[string]bool,
 	function ast.Node,
+	declarations declarationIndexCache,
 ) bool {
 	pkg, method, found := errorStringSelector(call)
 	if !found {
@@ -109,12 +123,12 @@ func isErrorStringConstructor(
 	if pkg.Obj != nil {
 		return false
 	}
-	if localNameShadowsCall(call, pkg.Name, function) {
+	qualified := pkg.Name + "." + method
+	if !constructors[qualified] {
 		return false
 	}
 
-	qualified := pkg.Name + "." + method
-	return constructors[qualified]
+	return !localNameShadowsCall(call, pkg.Name, function, declarations)
 }
 
 func errorStringSelector(call *ast.CallExpr) (*ast.Ident, string, bool) {
@@ -131,12 +145,17 @@ func errorStringSelector(call *ast.CallExpr) (*ast.Ident, string, bool) {
 	return pkg, selector.Sel.Name, true
 }
 
-func localNameShadowsCall(call *ast.CallExpr, name string, function ast.Node) bool {
+func localNameShadowsCall(
+	call *ast.CallExpr,
+	name string,
+	function ast.Node,
+	declarations declarationIndexCache,
+) bool {
 	if function == nil {
 		return false
 	}
 
-	return declarationCountBefore(function, name, call.Pos()) > 0
+	return declarations.countBefore(function, name, call.Pos()) > 0
 }
 
 func errorStringConstructorNames(file *ast.File) map[string]bool {

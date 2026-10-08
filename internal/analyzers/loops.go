@@ -29,14 +29,20 @@ func newPreferRangeLoop() ruleSpec {
 
 func checkIndexLoops(pass *analysis.Pass) {
 	loopTypes := []ast.Node{(*ast.ForStmt)(nil)}
+	declarationsByFunction := make(declarationIndexCache)
 	inspectCursors(pass, loopTypes, func(cursor syntaxCursor) {
 		statement := cursor.Node().(*ast.ForStmt)
-		checkIndexLoop(pass, statement, enclosingFunction(cursor))
+		checkIndexLoop(pass, statement, enclosingFunction(cursor), declarationsByFunction)
 	})
 }
 
-func checkIndexLoop(pass *analysis.Pass, stmt *ast.ForStmt, function ast.Node) {
-	if !shouldPreferRange(stmt, function) {
+func checkIndexLoop(
+	pass *analysis.Pass,
+	stmt *ast.ForStmt,
+	function ast.Node,
+	declarations declarationIndexCache,
+) {
+	if !shouldPreferRange(stmt, function, declarations) {
 		return
 	}
 
@@ -49,7 +55,11 @@ func checkIndexLoop(pass *analysis.Pass, stmt *ast.ForStmt, function ast.Node) {
 	)
 }
 
-func shouldPreferRange(stmt *ast.ForStmt, function ast.Node) bool {
+func shouldPreferRange(
+	stmt *ast.ForStmt,
+	function ast.Node,
+	declarations declarationIndexCache,
+) bool {
 	collection, ok := indexLoopCollectionName(stmt)
 	if !ok {
 		return false
@@ -59,24 +69,34 @@ func shouldPreferRange(stmt *ast.ForStmt, function ast.Node) bool {
 		return false
 	}
 
-	return rangeCollectionIsStable(function, stmt, collection)
+	return rangeCollectionIsStable(function, stmt, collection, declarations)
 }
 
-func rangeCollectionIsStable(function ast.Node, stmt *ast.ForStmt, collection string) bool {
+func rangeCollectionIsStable(
+	function ast.Node,
+	stmt *ast.ForStmt,
+	collection string,
+	declarations declarationIndexCache,
+) bool {
 	kind := functionParameterCollectionKind(function, collection)
 	if kind != arrayOrSliceCollection {
 		return false
 	}
 
-	if !hasStableRangeDeclarations(function, collection, stmt.Pos()) {
+	if !hasStableRangeDeclarations(function, collection, stmt.Pos(), declarations) {
 		return false
 	}
 
 	return !loopChangesCollection(stmt.Body, collection)
 }
 
-func hasStableRangeDeclarations(function ast.Node, collection string, before token.Pos) bool {
-	collectionDeclarations, lenDeclarations := declarationCountsBefore(
+func hasStableRangeDeclarations(
+	function ast.Node,
+	collection string,
+	before token.Pos,
+	declarations declarationIndexCache,
+) bool {
+	collectionDeclarations, lenDeclarations := declarations.countsBefore(
 		function,
 		collection,
 		"len",
@@ -118,19 +138,6 @@ func loopCounterName(init ast.Stmt) (string, bool) {
 	}
 
 	return singleIdentName(assign.Lhs)
-}
-
-func singleIdentName(expressions []ast.Expr) (string, bool) {
-	if len(expressions) != 1 {
-		return "", false
-	}
-
-	identifier, ok := expressions[0].(*ast.Ident)
-	if !ok {
-		return "", false
-	}
-
-	return identifier.Name, true
 }
 
 func isZeroLiteralValue(expressions []ast.Expr) bool {
@@ -184,6 +191,19 @@ func lenArgumentName(expression ast.Expr) (string, bool) {
 	return singleIdentName(call.Args)
 }
 
+func singleIdentName(expressions []ast.Expr) (string, bool) {
+	if len(expressions) != 1 {
+		return "", false
+	}
+
+	identifier, ok := expressions[0].(*ast.Ident)
+	if !ok {
+		return "", false
+	}
+
+	return identifier.Name, true
+}
+
 func isBuiltinLen(identifier *ast.Ident) bool {
 	if identifier.Name != "len" {
 		return false
@@ -203,15 +223,6 @@ func loopIncrementsCounter(post ast.Stmt, counter string) bool {
 	}
 
 	return isIdentNamed(stmt.X, counter)
-}
-
-func isIdentNamed(expression ast.Expr, name string) bool {
-	identifier, ok := expression.(*ast.Ident)
-	if !ok {
-		return false
-	}
-
-	return identifier.Name == name
 }
 
 func functionParameterCollectionKind(function ast.Node, name string) collectionKind {
@@ -316,4 +327,13 @@ func identifiersContainName(identifiers []*ast.Ident, name string) bool {
 
 func rangeContainsName(stmt *ast.RangeStmt, name string) bool {
 	return isIdentNamed(stmt.Key, name) || isIdentNamed(stmt.Value, name)
+}
+
+func isIdentNamed(expression ast.Expr, name string) bool {
+	identifier, ok := expression.(*ast.Ident)
+	if !ok {
+		return false
+	}
+
+	return identifier.Name == name
 }
