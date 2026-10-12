@@ -32,14 +32,14 @@ func BenchmarkASTTraversal(b *testing.B) {
 	subtrees := benchmarkSubtreeRoots(b, files)
 
 	b.Run("legacy_ast_inspect", func(b *testing.B) {
-		for b.Loop() {
+		for i := 0; i < b.N; i++ {
 			visits := visitWithASTInspect(files, benchmarkLegacyASTWalks)
 			assertBenchmarkWork(b, visits)
 		}
 	})
 
 	b.Run("current_shared_index", func(b *testing.B) {
-		for b.Loop() {
+		for i := 0; i < b.N; i++ {
 			visits := visitCurrentTraversalShape(files, subtrees)
 			assertBenchmarkWork(b, visits)
 		}
@@ -50,14 +50,14 @@ func BenchmarkParentLookup(b *testing.B) {
 	files := parseBenchmarkFiles(b)
 
 	b.Run("repeated_parent_maps", func(b *testing.B) {
-		for b.Loop() {
+		for i := 0; i < b.N; i++ {
 			parents := buildParentMaps(files, benchmarkLegacyParentMapBuilds)
 			assertBenchmarkWork(b, parents)
 		}
 	})
 
 	b.Run("current_shared_index", func(b *testing.B) {
-		for b.Loop() {
+		for i := 0; i < b.N; i++ {
 			parents := visitCurrentParentShape(files)
 			assertBenchmarkWork(b, parents)
 		}
