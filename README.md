@@ -10,6 +10,8 @@ Lint rules for improved legiblity in Go. **go-lint-legiblity** provides rules fa
 
 Run **go-lint-legiblity** as a standalone command or as an optional `golangci-lint` module plugin.
 
+Building or installing from source requires Go 1.23.0 or later. Prebuilt release binaries do not require Go.
+
 ## Quick start
 
 1. Install

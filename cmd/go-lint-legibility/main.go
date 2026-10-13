@@ -15,9 +15,11 @@ import (
 	"golang.org/x/tools/go/analysis/multichecker"
 )
 
-const exitConfig = 2
-
-const versionDefault = false
+const (
+	exitConfig       = 2
+	versionDefault   = false
+	minimumGoVersion = "1.23.0"
+)
 
 var (
 	version      = "dev"
@@ -30,7 +32,7 @@ func main() {
 	flag.Func("V", "print version and exit", printUncachedVetVersion)
 
 	if hasVersionFlag(os.Args[1:]) {
-		fmt.Println(version)
+		printVersion()
 		return
 	}
 
@@ -41,6 +43,11 @@ func main() {
 	}
 
 	multichecker.Main(suppress.Wrap(analyzers.New(settings))...)
+}
+
+func printVersion() {
+	fmt.Println(version)
+	fmt.Printf("Building or installing from source requires Go %s or later.\n", minimumGoVersion)
 }
 
 func printUncachedVetVersion(value string) error {
