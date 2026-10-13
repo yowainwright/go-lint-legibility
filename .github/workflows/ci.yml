@@ -75,3 +75,33 @@ jobs:
         env:
           GOTOOLCHAIN: auto
         run: go install golang.org/x/vuln/cmd/govulncheck@v1.8.0 && govulncheck ./...
+
+  test-latest-go:
+    name: Test (Go 1.27.1, ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: '1.27.1'
+          cache: true
+
+      - name: Download modules
+        run: go mod download
+
+      - name: Vet
+        run: make vet
+
+      - name: Test
+        run: make test
