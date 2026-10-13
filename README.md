@@ -144,7 +144,7 @@ plugins:
 Install `golangci-lint`, then build the custom binary:
 
 ```sh
-go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0
+GOTOOLCHAIN=auto go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0
 golangci-lint custom
 ```
 

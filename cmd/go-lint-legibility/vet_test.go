@@ -1,17 +1,24 @@
 package main
 
 import (
+	goversion "go/version"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
+
+const goVetJSONExitZeroVersion = "go1.26"
 
 func TestVetTool(t *testing.T) {
 	binary := buildVetTool(t)
 	t.Run("release version", func(t *testing.T) {
 		checkVetReleaseVersion(t, binary)
+	})
+	t.Run("ordinary diagnostic status", func(t *testing.T) {
+		checkVetDiagnosticStatus(t, binary)
 	})
 	for _, mode := range []string{"discovered", "explicit", "nested"} {
 		t.Run(mode, func(t *testing.T) {
@@ -41,6 +48,27 @@ func checkVetReleaseVersion(t *testing.T, binary string) {
 	hasReleaseVersion := strings.HasPrefix(string(output), expectedPrefix)
 	if !hasReleaseVersion {
 		t.Fatalf("vet version does not identify the release: %s", output)
+	}
+}
+
+func checkVetDiagnosticStatus(t *testing.T, binary string) {
+	t.Helper()
+	dir, configPath := vetFixture(t, "discovered")
+	writeVetConfig(t, configPath, "error")
+	args := []string{"vet", "-vettool=" + binary, "./..."}
+	output, err := runVet(dir, args)
+	hasDiagnostic := strings.Contains(output, "LEG042")
+	gotFailure := err != nil
+	expectsFailure := goversion.Compare(runtime.Version(), goVetJSONExitZeroVersion) < 0
+	unexpectedResult := !hasDiagnostic || gotFailure != expectsFailure
+	if unexpectedResult {
+		t.Fatalf(
+			"go vet diagnostic result on %s: failed=%t, want failed=%t\n%s",
+			runtime.Version(),
+			gotFailure,
+			expectsFailure,
+			output,
+		)
 	}
 }
 
