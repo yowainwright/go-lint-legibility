@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/rand"
+	"encoding/hex"
 	"flag"
 	"fmt"
 	"os"
@@ -14,9 +15,11 @@ import (
 	"golang.org/x/tools/go/analysis/multichecker"
 )
 
-const exitConfig = 2
-
-const versionDefault = false
+const (
+	exitConfig       = 2
+	versionDefault   = false
+	minimumGoVersion = "1.23.0"
+)
 
 var (
 	version      = "dev"
@@ -29,7 +32,7 @@ func main() {
 	flag.Func("V", "print version and exit", printUncachedVetVersion)
 
 	if hasVersionFlag(os.Args[1:]) {
-		fmt.Println(version)
+		printVersion()
 		return
 	}
 
@@ -42,12 +45,21 @@ func main() {
 	multichecker.Main(suppress.Wrap(analyzers.New(settings))...)
 }
 
+func printVersion() {
+	fmt.Println(version)
+	fmt.Printf("Building or installing from source requires Go %s or later.\n", minimumGoVersion)
+}
+
 func printUncachedVetVersion(value string) error {
 	if value != "full" {
 		return fmt.Errorf("unsupported flag value: -V=%s (use -V=full)", value)
 	}
 
-	fmt.Printf("go-lint-legibility version %s buildID=%s\n", version, rand.Text())
+	buildID := make([]byte, 16)
+	if _, err := rand.Read(buildID); err != nil {
+		return fmt.Errorf("generate build ID: %w", err)
+	}
+	fmt.Printf("go-lint-legibility version %s buildID=%s\n", version, hex.EncodeToString(buildID))
 	os.Exit(0)
 	return nil
 }

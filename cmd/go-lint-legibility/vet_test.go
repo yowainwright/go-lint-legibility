@@ -1,17 +1,24 @@
 package main
 
 import (
+	goversion "go/version"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
+
+const goVetJSONExitZeroVersion = "go1.26"
 
 func TestVetTool(t *testing.T) {
 	binary := buildVetTool(t)
 	t.Run("release version", func(t *testing.T) {
 		checkVetReleaseVersion(t, binary)
+	})
+	t.Run("ordinary diagnostic status", func(t *testing.T) {
+		checkVetDiagnosticStatus(t, binary)
 	})
 	for _, mode := range []string{"discovered", "explicit", "nested"} {
 		t.Run(mode, func(t *testing.T) {
@@ -44,6 +51,27 @@ func checkVetReleaseVersion(t *testing.T, binary string) {
 	}
 }
 
+func checkVetDiagnosticStatus(t *testing.T, binary string) {
+	t.Helper()
+	dir, configPath := vetFixture(t, "discovered")
+	writeVetConfig(t, configPath, "error")
+	args := []string{"vet", "-vettool=" + binary, "./..."}
+	output, err := runVet(dir, args)
+	hasDiagnostic := strings.Contains(output, "LEG042")
+	gotFailure := err != nil
+	expectsFailure := goversion.Compare(runtime.Version(), goVetJSONExitZeroVersion) < 0
+	unexpectedResult := !hasDiagnostic || gotFailure != expectsFailure
+	if unexpectedResult {
+		t.Fatalf(
+			"go vet diagnostic result on %s: failed=%t, want failed=%t\n%s",
+			runtime.Version(),
+			gotFailure,
+			expectsFailure,
+			output,
+		)
+	}
+}
+
 func checkVetReloadsConfig(t *testing.T, binary string, mode string) {
 	t.Helper()
 	dir, configPath := vetFixture(t, mode)
@@ -55,16 +83,18 @@ func checkVetReloadsConfig(t *testing.T, binary string, mode string) {
 	writeVetConfig(t, configPath, "error")
 	output, err := runVet(dir, args)
 	hasDiagnostic := strings.Contains(output, "LEG042")
-	hasExpectedFailure := err != nil && hasDiagnostic
-	if !hasExpectedFailure {
-		t.Fatalf("vet reused stale config: %v\n%s", err, output)
+	if err != nil {
+		t.Fatalf("vet after config update: %v\n%s", err, output)
+	}
+	if !hasDiagnostic {
+		t.Fatalf("vet did not apply the updated config:\n%s", output)
 	}
 }
 
 func vetFixture(t *testing.T, mode string) (string, string) {
 	t.Helper()
 	dir := t.TempDir()
-	writeVetFile(t, filepath.Join(dir, "go.mod"), "module example.test/fixture\n\ngo 1.25.0\n")
+	writeVetFile(t, filepath.Join(dir, "go.mod"), "module example.test/fixture\n\ngo 1.23.0\n")
 	sourceDir := dir
 	if mode == "nested" {
 		sourceDir = filepath.Join(dir, "child")
@@ -86,7 +116,7 @@ func vetConfigPath(t *testing.T, sourceDir string, mode string) string {
 }
 
 func vetArgs(binary string, configPath string, mode string) []string {
-	args := []string{"vet", "-vettool=" + binary}
+	args := []string{"vet", "-json", "-vettool=" + binary}
 	if mode == "explicit" {
 		args = append(args, "-config="+configPath)
 	}
