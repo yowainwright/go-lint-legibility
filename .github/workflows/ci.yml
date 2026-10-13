@@ -65,6 +65,12 @@ jobs:
           GOTOOLCHAIN: auto
         run: make lint-golangci
 
+      - name: Setup Go for vulnerability scan
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: '1.27.x'
+          cache: false
+
       - name: Vulnerability check
         env:
           GOTOOLCHAIN: auto
