@@ -26,7 +26,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version-file: go.mod
           cache: true
@@ -66,7 +66,7 @@ jobs:
         run: make lint-golangci
 
       - name: Setup Go for vulnerability scan
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version: '1.27.x'
           cache: false
@@ -74,10 +74,10 @@ jobs:
       - name: Vulnerability check
         env:
           GOTOOLCHAIN: auto
-        run: go install golang.org/x/vuln/cmd/govulncheck@v1.8.0 && govulncheck ./...
+        run: go install golang.org/x/vuln/cmd/govulncheck@v1.10.0 && govulncheck ./...
 
   test-latest-go:
-    name: Test (Go 1.27.1, ${{ matrix.os }})
+    name: Test (Go 1.27.4, ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -92,9 +92,9 @@ jobs:
           persist-credentials: false
 
       - name: Setup Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
-          go-version: '1.27.1'
+          go-version: '1.27.4'
           cache: true
 
       - name: Download modules

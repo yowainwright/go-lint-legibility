@@ -2,7 +2,9 @@
   "config": {
     "go": {
       "path": "go.mod",
-      "manager": "go"
+      "manager": "go",
+      "mode": "precise",
+      "codependencies": ["golang.org/x/tools", "golang.org/x/mod", "golang.org/x/sync"]
     },
     "ci-workflow": {
       "path": ".github/workflows/ci.yml",
