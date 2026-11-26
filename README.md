@@ -134,7 +134,7 @@ Use this path if your project already runs `golangci-lint`. It needs a custom `g
 Create `.custom-gcl.yml` in the project that wants to use the linter:
 
 ```yaml
-version: v2.14.0
+version: v2.15.0
 name: legibility-golangci-lint
 destination: ./bin
 plugins:
@@ -146,7 +146,7 @@ plugins:
 Install `golangci-lint`, then build the custom binary:
 
 ```sh
-GOTOOLCHAIN=auto go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0
+GOTOOLCHAIN=auto go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0
 golangci-lint custom
 ```
 
