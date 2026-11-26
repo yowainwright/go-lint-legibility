@@ -12,7 +12,12 @@ description = "Print the next semantic version"
 run = "svu next"
 
 [tasks.release]
-description = "Validate and publish the next version; set RELEASE_VERSION to override"
+description = "Publish a release using the commit history or an explicit version bump"
+usage = '''
+arg "[bump]" help="Choose the version bump" {
+  choices "patch" "minor" "major"
+}
+'''
 depends = ["check"]
 run = '''
 set -eu
@@ -31,8 +36,9 @@ if [ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]; then
   exit 1
 fi
 current="$(svu current)"
-version="$(svu next)"
-if [ -n "${RELEASE_VERSION:-}" ]; then
+if [ -n "${usage_bump:-}" ]; then
+  version="$(svu "$usage_bump")"
+elif [ -n "${RELEASE_VERSION:-}" ]; then
   version="$RELEASE_VERSION"
   patch="$(svu patch)"
   minor="$(svu minor)"
@@ -41,12 +47,23 @@ if [ -n "${RELEASE_VERSION:-}" ]; then
     echo "RELEASE_VERSION must be $patch, $minor, or $major" >&2
     exit 1
   fi
+else
+  version="$(svu next)"
 fi
 if [ "$version" = "$current" ]; then
-  echo "no automatic version bump after $current; set RELEASE_VERSION explicitly" >&2
+  echo "No automatic bump after $current. Choose release:patch, release:minor, or release:major." >&2
   exit 1
 fi
 echo "tagging $version"
-git tag "$version"
+git tag -m "Release $version" "$version"
 git push origin "$version"
 '''
+
+[tasks."release:patch"]
+depends = ["release patch"]
+
+[tasks."release:minor"]
+depends = ["release minor"]
+
+[tasks."release:major"]
+depends = ["release major"]
